@@ -1,0 +1,13 @@
+.env
+
+bin/
+
+tmp/
+
+vendor/
+
+*.exe
+
+*.log
+
+coverage.out
