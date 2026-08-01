@@ -8,6 +8,7 @@ import (
 
 	"github.com/ESJ0/selava-backend/internal/models"
 	"github.com/ESJ0/selava-backend/internal/repository"
+	"github.com/ESJ0/selava-backend/internal/validator"
 )
 
 var ErrEmailEnUso = errors.New("el email ya está en uso por otro cliente")
@@ -24,6 +25,10 @@ func (s *ClienteService) CrearCliente(ctx context.Context, req *models.ClienteCr
 	req.Nombre = strings.TrimSpace(req.Nombre)
 	req.Apellido = strings.TrimSpace(req.Apellido)
 	req.Email = strings.TrimSpace(req.Email)
+
+	if errs := validator.ValidateClienteCreate(req); errs.HasErrors() {
+		return nil, errs
+	}
 
 	if req.Email != "" {
 		existe, err := s.repo.ExistsByEmail(ctx, req.Email)
@@ -51,6 +56,11 @@ func (s *ClienteService) ListarClientes(ctx context.Context) ([]models.Cliente, 
 }
 
 func (s *ClienteService) ActualizarCliente(ctx context.Context, id int, req *models.ClienteUpdateRequest) (*models.Cliente, error) {
+
+	if errs := validator.ValidateClienteUpdate(req); errs.HasErrors() {
+		return nil, errs
+	}
+
 	if req.Email != nil && *req.Email != "" {
 		existe, err := s.repo.ExistsByEmail(ctx, *req.Email)
 		if err != nil {
