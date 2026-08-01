@@ -11,6 +11,7 @@ import (
 	"github.com/ESJ0/selava-backend/internal/models"
 	"github.com/ESJ0/selava-backend/internal/repository"
 	"github.com/ESJ0/selava-backend/internal/service"
+	"github.com/ESJ0/selava-backend/internal/validator"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -125,6 +126,12 @@ func (cc *ClienteController) Eliminar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cc *ClienteController) handleServiceError(w http.ResponseWriter, err error) {
+	var verrs validator.ValidationErrors
+	if errors.As(err, &verrs) {
+		respondJSON(w, http.StatusUnprocessableEntity, map[string]any{"errores": verrs})
+		return
+	}
+
 	switch {
 	case errors.Is(err, repository.ErrClienteNoEncontrado):
 		respondError(w, http.StatusNotFound, "cliente no encontrado")
