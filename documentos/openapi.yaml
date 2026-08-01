@@ -1,0 +1,371 @@
+openapi: 3.0.3
+info:
+  title: SeLava Backend API
+  description: >
+    API del sistema de gestión de la lavandería SeLava (ventas, inventario,
+    clientes, usuarios). Este documento cubre los endpoints implementados
+    hasta el Sprint 1: autenticación y módulo de Clientes.
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:8080
+    description: Entorno local de desarrollo
+
+tags:
+  - name: Salud
+    description: Verificación de disponibilidad del servicio
+  - name: Autenticación
+    description: Login y emisión de tokens JWT
+  - name: Clientes
+    description: Gestión de clientes de la lavandería
+
+paths:
+  /health:
+    get:
+      tags: [Salud]
+      summary: Verifica que el servicio esté en línea
+      responses:
+        "200":
+          description: El servicio está funcionando
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Inicia sesión y devuelve un token JWT
+      description: >
+        Nota: el middleware de autorización que valida este token en otros
+        endpoints (SEL-12) está pendiente de implementación. Por ahora los
+        endpoints de Clientes no requieren el token, aunque ya está
+        contemplado en el diseño (ver `security` más abajo, a futuro).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Falta email o contraseña
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Email o contraseña incorrectos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/clientes:
+    post:
+      tags: [Clientes]
+      summary: Crea un nuevo cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClienteCreateRequest"
+      responses:
+        "201":
+          description: Cliente creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cliente"
+        "400":
+          description: Cuerpo de la petición inválido (JSON malformado)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: El email ya está en uso por otro cliente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+    get:
+      tags: [Clientes]
+      summary: Lista todos los clientes
+      responses:
+        "200":
+          description: Listado de clientes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Cliente"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/clientes/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID numérico del cliente
+        schema:
+          type: integer
+          example: 1
+
+    get:
+      tags: [Clientes]
+      summary: Obtiene un cliente por ID
+      responses:
+        "200":
+          description: Cliente encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cliente"
+        "400":
+          description: ID inválido (no numérico)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ClienteNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+    put:
+      tags: [Clientes]
+      summary: Actualiza campos de un cliente (parcial)
+      description: >
+        Solo los campos incluidos en el body se actualizan; los omitidos
+        conservan su valor actual.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClienteUpdateRequest"
+      responses:
+        "200":
+          description: Cliente actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cliente"
+        "400":
+          description: ID o cuerpo de la petición inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ClienteNoEncontrado"
+        "409":
+          description: El nuevo email ya está en uso por otro cliente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+    delete:
+      tags: [Clientes]
+      summary: Elimina (lógicamente) un cliente
+      description: >
+        Borrado lógico: marca `activo = false` en vez de eliminar el
+        registro, para conservar el historial de pedidos/pagos vinculados.
+      responses:
+        "204":
+          description: Cliente eliminado exitosamente (sin contenido)
+        "400":
+          description: ID inválido (no numérico)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ClienteNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Token emitido por /api/auth/login. Aún no es exigido por ningún
+        endpoint (pendiente SEL-12), se documenta para cuando el middleware
+        de autorización quede implementado.
+
+  responses:
+    ErrorInterno:
+      description: Error interno del servidor
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    ClienteNoEncontrado:
+      description: No existe un cliente con ese ID
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    ErrorValidacion:
+      description: Uno o más campos no pasaron las validaciones de formato
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationErrorResponse"
+
+  schemas:
+    Cliente:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: María
+        apellido:
+          type: string
+          example: González
+        telefono:
+          type: string
+          example: "+502 5555-1234"
+        email:
+          type: string
+          format: email
+          example: maria.gonzalez@example.com
+        direccion:
+          type: string
+          example: 3a Calle 4-56, Zona 10
+        activo:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ClienteCreateRequest:
+      type: object
+      required: [nombre, apellido, telefono]
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          description: Solo letras, espacios, apóstrofes y guiones
+          example: María
+        apellido:
+          type: string
+          maxLength: 100
+          example: González
+        telefono:
+          type: string
+          maxLength: 20
+          description: Entre 8 y 15 dígitos, puede incluir +, espacios o guiones
+          example: "+502 5555-1234"
+        email:
+          type: string
+          maxLength: 150
+          description: Opcional. Debe tener formato de email válido si se envía.
+          example: maria.gonzalez@example.com
+        direccion:
+          type: string
+          maxLength: 255
+          example: 3a Calle 4-56, Zona 10
+
+    ClienteUpdateRequest:
+      type: object
+      description: Todos los campos son opcionales; solo se actualizan los enviados.
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+        apellido:
+          type: string
+          maxLength: 100
+        telefono:
+          type: string
+          maxLength: 20
+        email:
+          type: string
+          maxLength: 150
+        direccion:
+          type: string
+          maxLength: 255
+        activo:
+          type: boolean
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: cajero@selava.com
+        password:
+          type: string
+          format: password
+          example: contraseñaSegura123
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Token JWT firmado, válido por 8 horas
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: cliente no encontrado
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        errores:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: telefono
+              message:
+                type: string
+                example: debe tener entre 8 y 15 dígitos, puede incluir +, espacios o guiones
