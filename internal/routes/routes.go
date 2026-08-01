@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(clienteController *controller.ClienteController) *chi.Mux {
+func NewRouter(clienteController *controller.ClienteController, authController *controller.AuthController) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Middlewares livianos: Recoverer evita que un panic tumbe el servidor
@@ -22,6 +22,8 @@ func NewRouter(clienteController *controller.ClienteController) *chi.Mux {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
 	})
+
+	r.Post("/api/auth/login", authController.Login)
 
 	r.Route("/api/clientes", func(r chi.Router) {
 		r.Post("/", clienteController.Crear)
