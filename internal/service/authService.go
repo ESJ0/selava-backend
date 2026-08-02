@@ -5,17 +5,22 @@ import (
 	"errors"
 
 	"github.com/ESJ0/selava-backend/internal/auth"
+	"github.com/ESJ0/selava-backend/internal/models"
 	"github.com/ESJ0/selava-backend/internal/repository"
 )
 
-var ErrCredencialesInvalidas = errors.New("email o contraseña incorrectos")
+var ErrCredencialesInvalidas = errors.New("email o contrasena incorrectos")
+
+type UsuarioRepository interface {
+	GetByEmail(ctx context.Context, email string) (*models.Usuario, error)
+}
 
 type AuthService struct {
-	usuarioRepo *repository.UsuarioRepository
+	usuarioRepo UsuarioRepository
 	jwtSecret   string
 }
 
-func NewAuthService(usuarioRepo *repository.UsuarioRepository, jwtSecret string) *AuthService {
+func NewAuthService(usuarioRepo UsuarioRepository, jwtSecret string) *AuthService {
 	return &AuthService{usuarioRepo: usuarioRepo, jwtSecret: jwtSecret}
 }
 

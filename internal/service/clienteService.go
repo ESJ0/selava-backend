@@ -7,17 +7,25 @@ import (
 	"strings"
 
 	"github.com/ESJ0/selava-backend/internal/models"
-	"github.com/ESJ0/selava-backend/internal/repository"
 	"github.com/ESJ0/selava-backend/internal/validator"
 )
 
-var ErrEmailEnUso = errors.New("el email ya está en uso por otro cliente")
+var ErrEmailEnUso = errors.New("el email ya esta en uso por otro cliente")
 
-type ClienteService struct {
-	repo *repository.ClienteRepository
+type ClienteRepository interface {
+	Create(ctx context.Context, c *models.ClienteCreateRequest) (*models.Cliente, error)
+	GetByID(ctx context.Context, id int) (*models.Cliente, error)
+	List(ctx context.Context) ([]models.Cliente, error)
+	Update(ctx context.Context, id int, u *models.ClienteUpdateRequest) (*models.Cliente, error)
+	Delete(ctx context.Context, id int) error
+	ExistsByEmail(ctx context.Context, email string) (bool, error)
 }
 
-func NewClienteService(repo *repository.ClienteRepository) *ClienteService {
+type ClienteService struct {
+	repo ClienteRepository
+}
+
+func NewClienteService(repo ClienteRepository) *ClienteService {
 	return &ClienteService{repo: repo}
 }
 
@@ -56,7 +64,6 @@ func (s *ClienteService) ListarClientes(ctx context.Context) ([]models.Cliente, 
 }
 
 func (s *ClienteService) ActualizarCliente(ctx context.Context, id int, req *models.ClienteUpdateRequest) (*models.Cliente, error) {
-
 	if errs := validator.ValidateClienteUpdate(req); errs.HasErrors() {
 		return nil, errs
 	}
