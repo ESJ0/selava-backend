@@ -37,7 +37,7 @@ func main() {
 	authService := service.NewAuthService(usuarioRepo, cfg.JWTSecret)
 	authController := controller.NewAuthController(authService)
 
-	router := routes.NewRouter(clienteController, authController)
+	router := routes.NewRouter(clienteController, authController, cfg.JWTSecret)
 
 	port := cfg.Port
 	if port == "" {
