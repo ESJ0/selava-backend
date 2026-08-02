@@ -2,31 +2,35 @@ openapi: 3.0.3
 info:
   title: SeLava Backend API
   description: >
-    API del sistema de gestión de la lavandería SeLava (ventas, inventario,
+    API del sistema de gestion de la lavanderia SeLava (ventas, inventario,
     clientes, usuarios). Este documento cubre los endpoints implementados
-    hasta el Sprint 1: autenticación y módulo de Clientes.
+    hasta el Sprint 1: autenticacion y modulo de Clientes.
   version: "1.0.0"
 
 servers:
   - url: http://localhost:8080
     description: Entorno local de desarrollo
 
+security:
+  - bearerAuth: []
+
 tags:
   - name: Salud
-    description: Verificación de disponibilidad del servicio
-  - name: Autenticación
-    description: Login y emisión de tokens JWT
+    description: Verificacion de disponibilidad del servicio
+  - name: Autenticacion
+    description: Login y emision de tokens JWT
   - name: Clientes
-    description: Gestión de clientes de la lavandería
+    description: Gestion de clientes de la lavanderia
 
 paths:
   /health:
     get:
       tags: [Salud]
-      summary: Verifica que el servicio esté en línea
+      summary: Verifica que el servicio este en linea
+      security: []
       responses:
         "200":
-          description: El servicio está funcionando
+          description: El servicio esta funcionando
           content:
             application/json:
               schema:
@@ -38,13 +42,12 @@ paths:
 
   /api/auth/login:
     post:
-      tags: [Autenticación]
-      summary: Inicia sesión y devuelve un token JWT
+      tags: [Autenticacion]
+      summary: Inicia sesion y devuelve un token JWT
       description: >
-        Nota: el middleware de autorización que valida este token en otros
-        endpoints (SEL-12) está pendiente de implementación. Por ahora los
-        endpoints de Clientes no requieren el token, aunque ya está
-        contemplado en el diseño (ver `security` más abajo, a futuro).
+        Devuelve un token JWT que debe enviarse como Bearer token para
+        consumir los endpoints protegidos del API.
+      security: []
       requestBody:
         required: true
         content:
@@ -59,13 +62,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/LoginResponse"
         "400":
-          description: Falta email o contraseña
+          description: Falta email o contrasena
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
-          description: Email o contraseña incorrectos
+          description: Email o contrasena incorrectos
           content:
             application/json:
               schema:
@@ -91,13 +94,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/Cliente"
         "400":
-          description: Cuerpo de la petición inválido (JSON malformado)
+          description: Cuerpo de la peticion invalido (JSON malformado)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
         "409":
-          description: El email ya está en uso por otro cliente
+          description: El email ya esta en uso por otro cliente
           content:
             application/json:
               schema:
@@ -119,6 +126,10 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Cliente"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
@@ -127,7 +138,7 @@ paths:
       - name: id
         in: path
         required: true
-        description: ID numérico del cliente
+        description: ID numerico del cliente
         schema:
           type: integer
           example: 1
@@ -143,11 +154,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/Cliente"
         "400":
-          description: ID inválido (no numérico)
+          description: ID invalido (no numerico)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
         "404":
           $ref: "#/components/responses/ClienteNoEncontrado"
         "500":
@@ -173,15 +188,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/Cliente"
         "400":
-          description: ID o cuerpo de la petición inválido
+          description: ID o cuerpo de la peticion invalido
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
         "404":
           $ref: "#/components/responses/ClienteNoEncontrado"
         "409":
-          description: El nuevo email ya está en uso por otro cliente
+          description: El nuevo email ya esta en uso por otro cliente
           content:
             application/json:
               schema:
@@ -193,19 +212,23 @@ paths:
 
     delete:
       tags: [Clientes]
-      summary: Elimina (lógicamente) un cliente
+      summary: Elimina logicamente un cliente
       description: >
-        Borrado lógico: marca `activo = false` en vez de eliminar el
-        registro, para conservar el historial de pedidos/pagos vinculados.
+        Borrado logico: marca activo = false en vez de eliminar el registro,
+        para conservar el historial de pedidos/pagos vinculados.
       responses:
         "204":
           description: Cliente eliminado exitosamente (sin contenido)
         "400":
-          description: ID inválido (no numérico)
+          description: ID invalido (no numerico)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
         "404":
           $ref: "#/components/responses/ClienteNoEncontrado"
         "500":
@@ -218,13 +241,26 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >
-        Token emitido por /api/auth/login. Aún no es exigido por ningún
-        endpoint (pendiente SEL-12), se documenta para cuando el middleware
-        de autorización quede implementado.
+        Token emitido por /api/auth/login. Debe enviarse en el header
+        Authorization con el formato Bearer <token>.
 
   responses:
     ErrorInterno:
       description: Error interno del servidor
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    NoAutenticado:
+      description: Token faltante, mal formado, invalido o expirado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    NoAutorizado:
+      description: El rol del usuario no tiene permisos para el recurso
       content:
         application/json:
           schema:
@@ -238,7 +274,7 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
 
     ErrorValidacion:
-      description: Uno o más campos no pasaron las validaciones de formato
+      description: Uno o mas campos no pasaron las validaciones de formato
       content:
         application/json:
           schema:
@@ -253,10 +289,10 @@ components:
           example: 1
         nombre:
           type: string
-          example: María
+          example: Maria
         apellido:
           type: string
-          example: González
+          example: Gonzalez
         telefono:
           type: string
           example: "+502 5555-1234"
@@ -284,21 +320,21 @@ components:
         nombre:
           type: string
           maxLength: 100
-          description: Solo letras, espacios, apóstrofes y guiones
-          example: María
+          description: Solo letras, espacios, apostrofes y guiones
+          example: Maria
         apellido:
           type: string
           maxLength: 100
-          example: González
+          example: Gonzalez
         telefono:
           type: string
           maxLength: 20
-          description: Entre 8 y 15 dígitos, puede incluir +, espacios o guiones
+          description: Entre 8 y 15 digitos, puede incluir +, espacios o guiones
           example: "+502 5555-1234"
         email:
           type: string
           maxLength: 150
-          description: Opcional. Debe tener formato de email válido si se envía.
+          description: Opcional. Debe tener formato de email valido si se envia.
           example: maria.gonzalez@example.com
         direccion:
           type: string
@@ -338,14 +374,14 @@ components:
         password:
           type: string
           format: password
-          example: contraseñaSegura123
+          example: contrasenaSegura123
 
     LoginResponse:
       type: object
       properties:
         token:
           type: string
-          description: Token JWT firmado, válido por 8 horas
+          description: Token JWT firmado, valido por 8 horas
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
     ErrorResponse:
@@ -368,4 +404,4 @@ components:
                 example: telefono
               message:
                 type: string
-                example: debe tener entre 8 y 15 dígitos, puede incluir +, espacios o guiones
+                example: debe tener entre 8 y 15 digitos, puede incluir +, espacios o guiones

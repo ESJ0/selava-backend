@@ -30,8 +30,8 @@ func Load() (*Config, error) {
 		JWTSecret:  os.Getenv("JWT_SECRET"),
 	}
 
-	if cfg.DBHost == "" || cfg.DBUser == "" || cfg.DBName == "" {
-		return nil, fmt.Errorf("faltan variables de entorno requeridas para la base de datos")
+	if cfg.DBHost == "" || cfg.DBUser == "" || cfg.DBName == "" || cfg.JWTSecret == "" {
+		return nil, fmt.Errorf("faltan variables de entorno requeridas para la base de datos o autenticacion")
 	}
 
 	return cfg, nil
