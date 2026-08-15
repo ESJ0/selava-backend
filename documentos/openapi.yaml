@@ -25,6 +25,8 @@ tags:
     description: Gestion del catalogo de servicios de la lavanderia
   - name: Tipos de Prenda
     description: Gestion del catalogo de tipos de prenda
+  - name: Metodos de Pago
+    description: Gestion del catalogo de metodos de pago
 
 paths:
   /health:
@@ -485,6 +487,129 @@ paths:
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
+  /api/metodos-pago:
+    get:
+      tags: [Metodos de Pago]
+      summary: Lista todos los metodos de pago
+      responses:
+        "200":
+          description: Listado de metodos de pago
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MetodoPago"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    post:
+      tags: [Metodos de Pago]
+      summary: Crea un metodo de pago
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MetodoPagoCreateRequest"
+      responses:
+        "201":
+          description: Metodo de pago creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetodoPago"
+        "400":
+          description: Cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "409":
+          description: Ya existe un metodo de pago con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/metodos-pago/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    get:
+      tags: [Metodos de Pago]
+      summary: Obtiene un metodo de pago por ID
+      responses:
+        "200":
+          description: Metodo de pago encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetodoPago"
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/MetodoPagoNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    put:
+      tags: [Metodos de Pago]
+      summary: Actualiza los campos enviados de un metodo de pago
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MetodoPagoUpdateRequest"
+      responses:
+        "200":
+          description: Metodo de pago actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetodoPago"
+        "400":
+          description: ID o cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/MetodoPagoNoEncontrado"
+        "409":
+          description: Ya existe un metodo de pago con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    delete:
+      tags: [Metodos de Pago]
+      summary: Desactiva un metodo de pago
+      responses:
+        "204":
+          description: Metodo de pago desactivado
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/MetodoPagoNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -538,6 +663,13 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
 
+    MetodoPagoNoEncontrado:
+      description: No existe un metodo de pago con ese ID
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
     ErrorValidacion:
       description: Uno o mas campos no pasaron las validaciones de formato
       content:
@@ -546,6 +678,38 @@ components:
             $ref: "#/components/schemas/ValidationErrorResponse"
 
   schemas:
+    MetodoPago:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: Efectivo
+        activo:
+          type: boolean
+          example: true
+
+    MetodoPagoCreateRequest:
+      type: object
+      required: [nombre]
+      properties:
+        nombre:
+          type: string
+          maxLength: 50
+          example: Tarjeta de credito
+
+    MetodoPagoUpdateRequest:
+      type: object
+      description: Todos los campos son opcionales; solo se actualizan los enviados.
+      properties:
+        nombre:
+          type: string
+          maxLength: 50
+        activo:
+          type: boolean
+
     TipoPrenda:
       type: object
       properties:

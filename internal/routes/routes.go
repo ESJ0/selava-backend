@@ -10,7 +10,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, tipoPrendaController *controller.TipoPrendaController, authController *controller.AuthController, jwtSecret string) *chi.Mux {
+func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, authController *controller.AuthController, jwtSecret string) *chi.Mux {
 	r := chi.NewRouter()
 	authMW := authmiddleware.NewAuthMiddleware(jwtSecret)
 
@@ -56,6 +56,17 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 		r.Get("/{id}", tipoPrendaController.Obtener)
 		r.Put("/{id}", tipoPrendaController.Actualizar)
 		r.Delete("/{id}", tipoPrendaController.Eliminar)
+	})
+
+	r.Route("/api/metodos-pago", func(r chi.Router) {
+		r.Use(authMW.Authenticate)
+		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolEmpleado))
+
+		r.Post("/", metodoPagoController.Crear)
+		r.Get("/", metodoPagoController.Listar)
+		r.Get("/{id}", metodoPagoController.Obtener)
+		r.Put("/{id}", metodoPagoController.Actualizar)
+		r.Delete("/{id}", metodoPagoController.Eliminar)
 	})
 
 	return r
