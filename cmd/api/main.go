@@ -33,11 +33,14 @@ func main() {
 	clienteRepo := repository.NewClienteRepository(db)
 	clienteService := service.NewClienteService(clienteRepo)
 	clienteController := controller.NewClienteController(clienteService)
+	servicioRepo := repository.NewServicioRepository(db)
+	servicioService := service.NewServicioService(servicioRepo)
+	servicioController := controller.NewServicioController(servicioService)
 	usuarioRepo := repository.NewUsuarioRepository(db)
 	authService := service.NewAuthService(usuarioRepo, cfg.JWTSecret)
 	authController := controller.NewAuthController(authService)
 
-	router := routes.NewRouter(clienteController, authController, cfg.JWTSecret)
+	router := routes.NewRouter(clienteController, servicioController, authController, cfg.JWTSecret)
 
 	port := cfg.Port
 	if port == "" {
