@@ -4,7 +4,11 @@ info:
   description: >
     API del sistema de gestion de la lavanderia SeLava (ventas, inventario,
     clientes, usuarios). Este documento cubre los endpoints implementados
+<<<<<<< HEAD
     hasta el Sprint 1: autenticacion y modulo de Clientes.
+=======
+    hasta el Sprint 1: autenticacion, clientes y servicios.
+>>>>>>> 0090610cbc8d01f5a28d67bf2ddce1aa295eb56a
   version: "1.0.0"
 
 servers:
@@ -21,6 +25,11 @@ tags:
     description: Login y emision de tokens JWT
   - name: Clientes
     description: Gestion de clientes de la lavanderia
+<<<<<<< HEAD
+=======
+  - name: Servicios
+    description: Gestion del catalogo de servicios de la lavanderia
+>>>>>>> 0090610cbc8d01f5a28d67bf2ddce1aa295eb56a
 
 paths:
   /health:
@@ -234,6 +243,133 @@ paths:
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
+<<<<<<< HEAD
+=======
+  /api/servicios:
+    get:
+      tags: [Servicios]
+      summary: Lista todos los servicios
+      responses:
+        "200":
+          description: Listado de servicios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Servicio"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    post:
+      tags: [Servicios]
+      summary: Crea un servicio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServicioCreateRequest"
+      responses:
+        "201":
+          description: Servicio creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Servicio"
+        "400":
+          description: Cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "409":
+          description: Ya existe un servicio con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/servicios/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    get:
+      tags: [Servicios]
+      summary: Obtiene un servicio por ID
+      responses:
+        "200":
+          description: Servicio encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Servicio"
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/ServicioNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    put:
+      tags: [Servicios]
+      summary: Actualiza los campos enviados de un servicio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServicioUpdateRequest"
+      responses:
+        "200":
+          description: Servicio actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Servicio"
+        "400":
+          description: ID o cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/ServicioNoEncontrado"
+        "409":
+          description: Ya existe un servicio con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    delete:
+      tags: [Servicios]
+      summary: Desactiva un servicio
+      description: Realiza borrado logico estableciendo activo en false.
+      responses:
+        "204":
+          description: Servicio desactivado
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/ServicioNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+>>>>>>> 0090610cbc8d01f5a28d67bf2ddce1aa295eb56a
 components:
   securitySchemes:
     bearerAuth:
@@ -273,6 +409,16 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
 
+<<<<<<< HEAD
+=======
+    ServicioNoEncontrado:
+      description: No existe un servicio con ese ID
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+>>>>>>> 0090610cbc8d01f5a28d67bf2ddce1aa295eb56a
     ErrorValidacion:
       description: Uno o mas campos no pasaron las validaciones de formato
       content:
@@ -281,6 +427,81 @@ components:
             $ref: "#/components/schemas/ValidationErrorResponse"
 
   schemas:
+<<<<<<< HEAD
+=======
+    Servicio:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: Lavado en seco
+        descripcion:
+          type: string
+          nullable: true
+          example: Limpieza especializada para prendas delicadas
+        precio_base:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          example: 35.5
+        tiempo_estimado_horas:
+          type: integer
+          nullable: true
+          example: 24
+        activo:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ServicioCreateRequest:
+      type: object
+      required: [nombre, precio_base]
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          example: Lavado en seco
+        descripcion:
+          type: string
+        precio_base:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          example: 35.5
+        tiempo_estimado_horas:
+          type: integer
+          example: 24
+
+    ServicioUpdateRequest:
+      type: object
+      description: Todos los campos son opcionales; solo se actualizan los enviados.
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+        descripcion:
+          type: string
+        precio_base:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+        tiempo_estimado_horas:
+          type: integer
+        activo:
+          type: boolean
+
+>>>>>>> 0090610cbc8d01f5a28d67bf2ddce1aa295eb56a
     Cliente:
       type: object
       properties:
