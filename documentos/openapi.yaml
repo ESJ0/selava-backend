@@ -23,6 +23,8 @@ tags:
     description: Gestion de clientes de la lavanderia
   - name: Servicios
     description: Gestion del catalogo de servicios de la lavanderia
+  - name: Tipos de Prenda
+    description: Gestion del catalogo de tipos de prenda
 
 paths:
   /health:
@@ -360,6 +362,129 @@ paths:
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
+  /api/tipos-prenda:
+    get:
+      tags: [Tipos de Prenda]
+      summary: Lista todos los tipos de prenda
+      responses:
+        "200":
+          description: Listado de tipos de prenda
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TipoPrenda"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    post:
+      tags: [Tipos de Prenda]
+      summary: Crea un tipo de prenda
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TipoPrendaCreateRequest"
+      responses:
+        "201":
+          description: Tipo de prenda creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TipoPrenda"
+        "400":
+          description: Cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "409":
+          description: Ya existe un tipo de prenda con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/tipos-prenda/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    get:
+      tags: [Tipos de Prenda]
+      summary: Obtiene un tipo de prenda por ID
+      responses:
+        "200":
+          description: Tipo de prenda encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TipoPrenda"
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/TipoPrendaNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    put:
+      tags: [Tipos de Prenda]
+      summary: Actualiza los campos enviados de un tipo de prenda
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TipoPrendaUpdateRequest"
+      responses:
+        "200":
+          description: Tipo de prenda actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TipoPrenda"
+        "400":
+          description: ID o cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/TipoPrendaNoEncontrado"
+        "409":
+          description: Ya existe un tipo de prenda con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    delete:
+      tags: [Tipos de Prenda]
+      summary: Desactiva un tipo de prenda
+      responses:
+        "204":
+          description: Tipo de prenda desactivado
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/TipoPrendaNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -406,6 +531,13 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
 
+    TipoPrendaNoEncontrado:
+      description: No existe un tipo de prenda con ese ID
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
     ErrorValidacion:
       description: Uno o mas campos no pasaron las validaciones de formato
       content:
@@ -414,6 +546,54 @@ components:
             $ref: "#/components/schemas/ValidationErrorResponse"
 
   schemas:
+    TipoPrenda:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: Camisa
+        descripcion:
+          type: string
+          nullable: true
+          example: Camisas de manga corta o larga
+        activo:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TipoPrendaCreateRequest:
+      type: object
+      required: [nombre]
+      properties:
+        nombre:
+          type: string
+          maxLength: 50
+          example: Camisa
+        descripcion:
+          type: string
+          maxLength: 255
+
+    TipoPrendaUpdateRequest:
+      type: object
+      description: Todos los campos son opcionales; solo se actualizan los enviados.
+      properties:
+        nombre:
+          type: string
+          maxLength: 50
+        descripcion:
+          type: string
+          maxLength: 255
+        activo:
+          type: boolean
+
     Servicio:
       type: object
       properties:
