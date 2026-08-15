@@ -4,11 +4,7 @@ info:
   description: >
     API del sistema de gestion de la lavanderia SeLava (ventas, inventario,
     clientes, usuarios). Este documento cubre los endpoints implementados
-<<<<<<< HEAD
-    hasta el Sprint 1: autenticacion y modulo de Clientes.
-=======
     hasta el Sprint 1: autenticacion, clientes y servicios.
->>>>>>> 0090610cbc8d01f5a28d67bf2ddce1aa295eb56a
   version: "1.0.0"
 
 servers:
@@ -25,11 +21,8 @@ tags:
     description: Login y emision de tokens JWT
   - name: Clientes
     description: Gestion de clientes de la lavanderia
-<<<<<<< HEAD
-=======
   - name: Servicios
     description: Gestion del catalogo de servicios de la lavanderia
->>>>>>> 0090610cbc8d01f5a28d67bf2ddce1aa295eb56a
 
 paths:
   /health:
@@ -243,8 +236,6 @@ paths:
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
-<<<<<<< HEAD
-=======
   /api/servicios:
     get:
       tags: [Servicios]
@@ -369,7 +360,6 @@ paths:
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
->>>>>>> 0090610cbc8d01f5a28d67bf2ddce1aa295eb56a
 components:
   securitySchemes:
     bearerAuth:
@@ -409,8 +399,6 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
 
-<<<<<<< HEAD
-=======
     ServicioNoEncontrado:
       description: No existe un servicio con ese ID
       content:
@@ -418,7 +406,6 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
 
->>>>>>> 0090610cbc8d01f5a28d67bf2ddce1aa295eb56a
     ErrorValidacion:
       description: Uno o mas campos no pasaron las validaciones de formato
       content:
@@ -427,8 +414,6 @@ components:
             $ref: "#/components/schemas/ValidationErrorResponse"
 
   schemas:
-<<<<<<< HEAD
-=======
     Servicio:
       type: object
       properties:
@@ -501,7 +486,6 @@ components:
         activo:
           type: boolean
 
->>>>>>> 0090610cbc8d01f5a28d67bf2ddce1aa295eb56a
     Cliente:
       type: object
       properties:

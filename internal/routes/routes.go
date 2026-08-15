@@ -10,11 +10,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
-<<<<<<< HEAD
-func NewRouter(clienteController *controller.ClienteController, authController *controller.AuthController, jwtSecret string) *chi.Mux {
-=======
 func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, authController *controller.AuthController, jwtSecret string) *chi.Mux {
->>>>>>> 0090610cbc8d01f5a28d67bf2ddce1aa295eb56a
 	r := chi.NewRouter()
 	authMW := authmiddleware.NewAuthMiddleware(jwtSecret)
 
@@ -40,8 +36,6 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 		r.Delete("/{id}", clienteController.Eliminar)
 	})
 
-<<<<<<< HEAD
-=======
 	r.Route("/api/servicios", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
 		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolEmpleado))
@@ -53,6 +47,5 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 		r.Delete("/{id}", servicioController.Eliminar)
 	})
 
->>>>>>> 0090610cbc8d01f5a28d67bf2ddce1aa295eb56a
 	return r
 }
