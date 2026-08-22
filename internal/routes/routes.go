@@ -10,7 +10,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, tipoPrendaController *controller.TipoPrendaController, pedidoController *controller.PedidoController, authController *controller.AuthController, jwtSecret string) *chi.Mux {
+func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, tipoPrendaController *controller.TipoPrendaController, pedidoController *controller.PedidoController, prendaController *controller.PrendaController, authController *controller.AuthController, jwtSecret string) *chi.Mux {
 	r := chi.NewRouter()
 	authMW := authmiddleware.NewAuthMiddleware(jwtSecret)
 
@@ -63,6 +63,7 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolEmpleado))
 
 		r.Post("/", pedidoController.Crear)
+		r.Post("/{pedidoID}/prendas", prendaController.CrearVarias)
 	})
 
 	return r
