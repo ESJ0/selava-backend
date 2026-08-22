@@ -25,6 +25,8 @@ tags:
     description: Gestion del catalogo de servicios de la lavanderia
   - name: Tipos de Prenda
     description: Gestion del catalogo de tipos de prenda
+  - name: Pedidos
+    description: Registro de pedidos de la lavanderia
 
 paths:
   /health:
@@ -77,6 +79,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/pedidos:
+    post:
+      tags: [Pedidos]
+      summary: Crea un pedido
+      description: >
+        Asocia el pedido al cliente indicado y al usuario autenticado. El
+        estado inicial siempre se establece como Recibido y el total inicia
+        en cero hasta registrar sus prendas.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PedidoCreateRequest"
+      responses:
+        "201":
+          description: Pedido creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pedido"
+        "400":
+          description: Cuerpo de la peticion invalido (JSON malformado)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: No existe el cliente indicado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
@@ -546,6 +590,65 @@ components:
             $ref: "#/components/schemas/ValidationErrorResponse"
 
   schemas:
+    Pedido:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        cliente_id:
+          type: integer
+          example: 4
+        usuario_id:
+          type: integer
+          example: 2
+        estado_actual_id:
+          type: integer
+          example: 1
+        fecha_recibido:
+          type: string
+          format: date-time
+        fecha_entrega_estimada:
+          type: string
+          format: date-time
+          nullable: true
+        fecha_entrega_real:
+          type: string
+          format: date-time
+          nullable: true
+        total:
+          type: number
+          format: double
+          minimum: 0
+          example: 0
+        observaciones:
+          type: string
+          nullable: true
+        activo:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PedidoCreateRequest:
+      type: object
+      required: [cliente_id]
+      properties:
+        cliente_id:
+          type: integer
+          minimum: 1
+          example: 4
+        fecha_entrega_estimada:
+          type: string
+          format: date-time
+        observaciones:
+          type: string
+          example: Entregar después de las 16:00
+
     TipoPrenda:
       type: object
       properties:

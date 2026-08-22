@@ -39,11 +39,14 @@ func main() {
 	tipoPrendaRepo := repository.NewTipoPrendaRepository(db)
 	tipoPrendaService := service.NewTipoPrendaService(tipoPrendaRepo)
 	tipoPrendaController := controller.NewTipoPrendaController(tipoPrendaService)
+	pedidoRepo := repository.NewPedidoRepository(db)
+	pedidoService := service.NewPedidoService(pedidoRepo)
+	pedidoController := controller.NewPedidoController(pedidoService)
 	usuarioRepo := repository.NewUsuarioRepository(db)
 	authService := service.NewAuthService(usuarioRepo, cfg.JWTSecret)
 	authController := controller.NewAuthController(authService)
 
-	router := routes.NewRouter(clienteController, servicioController, tipoPrendaController, authController, cfg.JWTSecret)
+	router := routes.NewRouter(clienteController, servicioController, tipoPrendaController, pedidoController, authController, cfg.JWTSecret)
 
 	port := cfg.Port
 	if port == "" {
