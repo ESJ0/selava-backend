@@ -4,19 +4,24 @@ import (
 	"context"
 
 	"github.com/ESJ0/selava-backend/internal/models"
-	"github.com/ESJ0/selava-backend/internal/repository"
 	"github.com/ESJ0/selava-backend/internal/validator"
 )
 
-type PedidoService struct {
-	repo *repository.PedidoRepository
+// PedidoRepository es la interfaz que necesita el service para poder
+// probarse con un fake, en vez de depender de *repository.PedidoRepository.
+type PedidoRepository interface {
+	Create(ctx context.Context, req *models.PedidoCreateRequest, usuarioID int) (*models.PedidoConPrendas, error)
 }
 
-func NewPedidoService(repo *repository.PedidoRepository) *PedidoService {
+type PedidoService struct {
+	repo PedidoRepository
+}
+
+func NewPedidoService(repo PedidoRepository) *PedidoService {
 	return &PedidoService{repo: repo}
 }
 
-func (s *PedidoService) CrearPedido(ctx context.Context, req *models.PedidoCreateRequest, usuarioID int) (*models.Pedido, error) {
+func (s *PedidoService) CrearPedido(ctx context.Context, req *models.PedidoCreateRequest, usuarioID int) (*models.PedidoConPrendas, error) {
 	if errs := validator.ValidatePedidoCreate(req); errs.HasErrors() {
 		return nil, errs
 	}
