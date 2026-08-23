@@ -5,15 +5,24 @@ import (
 	"strings"
 
 	"github.com/ESJ0/selava-backend/internal/models"
-	"github.com/ESJ0/selava-backend/internal/repository"
 	"github.com/ESJ0/selava-backend/internal/validator"
 )
 
-type TipoPrendaService struct {
-	repo *repository.TipoPrendaRepository
+// TipoPrendaRepository es la interfaz que necesita el service para poder
+// probarse con un fake, en vez de depender de *repository.TipoPrendaRepository.
+type TipoPrendaRepository interface {
+	Create(ctx context.Context, req *models.TipoPrendaCreateRequest) (*models.TipoPrenda, error)
+	GetByID(ctx context.Context, id int) (*models.TipoPrenda, error)
+	List(ctx context.Context) ([]models.TipoPrenda, error)
+	Update(ctx context.Context, id int, req *models.TipoPrendaUpdateRequest) (*models.TipoPrenda, error)
+	Delete(ctx context.Context, id int) error
 }
 
-func NewTipoPrendaService(repo *repository.TipoPrendaRepository) *TipoPrendaService {
+type TipoPrendaService struct {
+	repo TipoPrendaRepository
+}
+
+func NewTipoPrendaService(repo TipoPrendaRepository) *TipoPrendaService {
 	return &TipoPrendaService{repo: repo}
 }
 
