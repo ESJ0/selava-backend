@@ -4,8 +4,9 @@ info:
   description: >
     API del sistema de gestion de la lavanderia SeLava (ventas, inventario,
     clientes, usuarios). Este documento cubre los endpoints implementados
-    hasta el Sprint 1: autenticacion, clientes y servicios.
-  version: "1.0.0"
+    hasta el Sprint 2: autenticacion, clientes, catalogos (servicios, tipos
+    de prenda, metodos de pago) y creacion de pedidos.
+  version: "1.1.0"
 
 servers:
   - url: http://localhost:8080
@@ -25,6 +26,8 @@ tags:
     description: Gestion del catalogo de servicios de la lavanderia
   - name: Tipos de Prenda
     description: Gestion del catalogo de tipos de prenda
+  - name: Metodos de Pago
+    description: Gestion del catalogo de metodos de pago aceptados
   - name: Pedidos
     description: Registro de pedidos de la lavanderia
 
@@ -85,11 +88,13 @@ paths:
   /api/pedidos:
     post:
       tags: [Pedidos]
-      summary: Crea un pedido
+      summary: Crea un pedido junto con sus prendas
       description: >
-        Asocia el pedido al cliente indicado y al usuario autenticado. El
-        estado inicial siempre se establece como Recibido y el total inicia
-        en cero hasta registrar sus prendas.
+        Asocia el pedido al cliente indicado y al usuario autenticado, y
+        registra en la misma operacion todas las prendas incluidas. El
+        estado inicial siempre se establece como Recibido. La creacion es
+        atomica: si alguna prenda falla (por ejemplo, un tipo_prenda_id
+        que no existe), no se crea el pedido ni ninguna de sus prendas.
       requestBody:
         required: true
         content:
@@ -98,11 +103,11 @@ paths:
               $ref: "#/components/schemas/PedidoCreateRequest"
       responses:
         "201":
-          description: Pedido creado exitosamente
+          description: Pedido y prendas creados exitosamente
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Pedido"
+                $ref: "#/components/schemas/PedidoConPrendas"
         "400":
           description: Cuerpo de la peticion invalido (JSON malformado)
           content:
@@ -114,60 +119,7 @@ paths:
         "403":
           $ref: "#/components/responses/NoAutorizado"
         "404":
-          description: No existe el cliente indicado
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "422":
-          $ref: "#/components/responses/ErrorValidacion"
-        "500":
-          $ref: "#/components/responses/ErrorInterno"
-
-  /api/pedidos/{pedidoID}/prendas:
-    parameters:
-      - name: pedidoID
-        in: path
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-    post:
-      tags: [Pedidos]
-      summary: Registra una o varias prendas en un pedido
-      description: >
-        Recibe un arreglo con una o varias prendas y las registra de forma
-        atomica en el pedido existente.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: array
-              minItems: 1
-              items:
-                $ref: "#/components/schemas/PrendaCreateRequest"
-      responses:
-        "201":
-          description: Prendas registradas exitosamente
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Prenda"
-        "400":
-          description: ID o cuerpo de la peticion invalido
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          $ref: "#/components/responses/NoAutenticado"
-        "403":
-          $ref: "#/components/responses/NoAutorizado"
-        "404":
-          description: El pedido o el tipo de prenda no existe
+          description: No existe el cliente o alguno de los tipos de prenda indicados
           content:
             application/json:
               schema:
@@ -582,6 +534,129 @@ paths:
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
+  /api/metodos-pago:
+    get:
+      tags: [Metodos de Pago]
+      summary: Lista todos los metodos de pago
+      responses:
+        "200":
+          description: Listado de metodos de pago
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MetodoPago"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    post:
+      tags: [Metodos de Pago]
+      summary: Crea un metodo de pago
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MetodoPagoCreateRequest"
+      responses:
+        "201":
+          description: Metodo de pago creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetodoPago"
+        "400":
+          description: Cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "409":
+          description: Ya existe un metodo de pago con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/metodos-pago/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    get:
+      tags: [Metodos de Pago]
+      summary: Obtiene un metodo de pago por ID
+      responses:
+        "200":
+          description: Metodo de pago encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetodoPago"
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/MetodoPagoNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    put:
+      tags: [Metodos de Pago]
+      summary: Actualiza los campos enviados de un metodo de pago
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MetodoPagoUpdateRequest"
+      responses:
+        "200":
+          description: Metodo de pago actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetodoPago"
+        "400":
+          description: ID o cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/MetodoPagoNoEncontrado"
+        "409":
+          description: Ya existe un metodo de pago con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    delete:
+      tags: [Metodos de Pago]
+      summary: Desactiva un metodo de pago
+      responses:
+        "204":
+          description: Metodo de pago desactivado
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/MetodoPagoNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -630,6 +705,13 @@ components:
 
     TipoPrendaNoEncontrado:
       description: No existe un tipo de prenda con ese ID
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    MetodoPagoNoEncontrado:
+      description: No existe un metodo de pago con ese ID
       content:
         application/json:
           schema:
@@ -689,7 +771,7 @@ components:
 
     PedidoCreateRequest:
       type: object
-      required: [cliente_id]
+      required: [cliente_id, prendas]
       properties:
         cliente_id:
           type: integer
@@ -701,30 +783,55 @@ components:
         observaciones:
           type: string
           example: Entregar después de las 16:00
+        prendas:
+          type: array
+          minItems: 1
+          description: Debe incluir al menos una prenda.
+          items:
+            $ref: "#/components/schemas/PrendaCreateRequest"
+
+    PrendaCreateRequest:
+      type: object
+      required: [tipo_prenda_id, cantidad]
+      properties:
+        tipo_prenda_id:
+          type: integer
+          minimum: 1
+          example: 2
+        descripcion:
+          type: string
+          example: Camisa a rayas azules
+        cantidad:
+          type: integer
+          minimum: 1
+          example: 3
+        color:
+          type: string
+          example: Azul
 
     Prenda:
       type: object
       properties:
         id:
           type: integer
-          example: 1
+          example: 10
         pedido_id:
           type: integer
-          example: 1
+          example: 4
         tipo_prenda_id:
           type: integer
           example: 2
         descripcion:
           type: string
           nullable: true
+          example: Camisa a rayas azules
         cantidad:
           type: integer
-          minimum: 1
-          example: 2
+          example: 3
         color:
           type: string
           nullable: true
-          example: Blanca
+          example: Azul
         created_at:
           type: string
           format: date-time
@@ -732,26 +839,16 @@ components:
           type: string
           format: date-time
 
-    PrendaCreateRequest:
-      type: object
-      required: [tipo_prenda_id]
-      properties:
-        tipo_prenda_id:
-          type: integer
-          minimum: 1
-          example: 2
-        descripcion:
-          type: string
-          maxLength: 255
-        cantidad:
-          type: integer
-          minimum: 1
-          default: 1
-          example: 2
-        color:
-          type: string
-          maxLength: 30
-          example: Blanca
+    PedidoConPrendas:
+      description: Un pedido junto con las prendas que quedaron registradas en la misma operacion.
+      allOf:
+        - $ref: "#/components/schemas/Pedido"
+        - type: object
+          properties:
+            prendas:
+              type: array
+              items:
+                $ref: "#/components/schemas/Prenda"
 
     TipoPrenda:
       type: object
@@ -870,6 +967,38 @@ components:
           exclusiveMinimum: true
         tiempo_estimado_horas:
           type: integer
+        activo:
+          type: boolean
+
+    MetodoPago:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: Efectivo
+        activo:
+          type: boolean
+          example: true
+
+    MetodoPagoCreateRequest:
+      type: object
+      required: [nombre]
+      properties:
+        nombre:
+          type: string
+          maxLength: 50
+          example: Efectivo
+
+    MetodoPagoUpdateRequest:
+      type: object
+      description: Todos los campos son opcionales; solo se actualizan los enviados.
+      properties:
+        nombre:
+          type: string
+          maxLength: 50
         activo:
           type: boolean
 
