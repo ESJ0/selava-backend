@@ -5,15 +5,24 @@ import (
 	"strings"
 
 	"github.com/ESJ0/selava-backend/internal/models"
-	"github.com/ESJ0/selava-backend/internal/repository"
 	"github.com/ESJ0/selava-backend/internal/validator"
 )
 
-type ServicioService struct {
-	repo *repository.ServicioRepository
+// ServicioRepository es la interfaz que necesita el service para poder
+// probarse con un fake, en vez de depender de *repository.ServicioRepository.
+type ServicioRepository interface {
+	Create(ctx context.Context, req *models.ServicioCreateRequest) (*models.Servicio, error)
+	GetByID(ctx context.Context, id int) (*models.Servicio, error)
+	List(ctx context.Context) ([]models.Servicio, error)
+	Update(ctx context.Context, id int, req *models.ServicioUpdateRequest) (*models.Servicio, error)
+	Delete(ctx context.Context, id int) error
 }
 
-func NewServicioService(repo *repository.ServicioRepository) *ServicioService {
+type ServicioService struct {
+	repo ServicioRepository
+}
+
+func NewServicioService(repo ServicioRepository) *ServicioService {
 	return &ServicioService{repo: repo}
 }
 

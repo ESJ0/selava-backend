@@ -21,7 +21,38 @@ func NewPedidoRepository(db *pgxpool.Pool) *PedidoRepository {
 	return &PedidoRepository{db: db}
 }
 
-func (r *PedidoRepository) Create(ctx context.Context, req *models.PedidoCreateRequest, usuarioID int) (*models.Pedido, error) {
+// Create inserta el pedido y todas sus prendas dentro de una misma
+// transaccion: si alguna prenda falla (p. ej. un tipo_prenda_id que no
+// existe), se revierte tambien el pedido para no dejar registros huerfanos.
+func (r *PedidoRepository) Create(ctx context.Context, req *models.PedidoCreateRequest, usuarioID int) (*models.PedidoConPrendas, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error iniciando transaccion: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	pedido, err := r.insertPedido(ctx, tx, req, usuarioID)
+	if err != nil {
+		return nil, err
+	}
+
+	prendas := make([]models.Prenda, 0, len(req.Prendas))
+	for _, prendaReq := range req.Prendas {
+		prenda, err := r.insertPrenda(ctx, tx, pedido.ID, prendaReq)
+		if err != nil {
+			return nil, err
+		}
+		prendas = append(prendas, *prenda)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("error confirmando transaccion: %w", err)
+	}
+
+	return &models.PedidoConPrendas{Pedido: *pedido, Prendas: prendas}, nil
+}
+
+func (r *PedidoRepository) insertPedido(ctx context.Context, tx pgx.Tx, req *models.PedidoCreateRequest, usuarioID int) (*models.Pedido, error) {
 	const query = `
 		INSERT INTO pedidos (
 			cliente_id, usuario_id, estado_actual_id,
@@ -35,7 +66,7 @@ func (r *PedidoRepository) Create(ctx context.Context, req *models.PedidoCreateR
 		          total, observaciones, activo, created_at, updated_at`
 
 	var pedido models.Pedido
-	err := r.db.QueryRow(ctx, query,
+	err := tx.QueryRow(ctx, query,
 		req.ClienteID, usuarioID, req.FechaEntregaEstimada, req.Observaciones,
 	).Scan(
 		&pedido.ID, &pedido.ClienteID, &pedido.UsuarioID, &pedido.EstadoActualID,
@@ -56,6 +87,28 @@ func (r *PedidoRepository) Create(ctx context.Context, req *models.PedidoCreateR
 	return &pedido, nil
 }
 
+func (r *PedidoRepository) insertPrenda(ctx context.Context, tx pgx.Tx, pedidoID int, req models.PrendaCreateRequest) (*models.Prenda, error) {
+	const query = `
+		INSERT INTO prendas (pedido_id, tipo_prenda_id, descripcion, cantidad, color)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, pedido_id, tipo_prenda_id, descripcion, cantidad, color, created_at, updated_at`
+
+	var prenda models.Prenda
+	err := tx.QueryRow(ctx, query,
+		pedidoID, req.TipoPrendaID, req.Descripcion, req.Cantidad, req.Color,
+	).Scan(
+		&prenda.ID, &prenda.PedidoID, &prenda.TipoPrendaID, &prenda.Descripcion,
+		&prenda.Cantidad, &prenda.Color, &prenda.CreatedAt, &prenda.UpdatedAt,
+	)
+	if err != nil {
+		if mappedErr := prendaForeignKeyError(err); mappedErr != nil {
+			return nil, mappedErr
+		}
+		return nil, fmt.Errorf("error creando prenda: %w", err)
+	}
+	return &prenda, nil
+}
+
 func pedidoForeignKeyError(err error) error {
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.Code != "23503" {
@@ -68,6 +121,22 @@ func pedidoForeignKeyError(err error) error {
 	case "pedidos_usuario_id_fkey":
 		return ErrUsuarioNoEncontrado
 	case "pedidos_estado_actual_id_fkey":
+		return ErrEstadoPedidoNoEncontrado
+	default:
+		return nil
+	}
+}
+
+func prendaForeignKeyError(err error) error {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23503" {
+		return nil
+	}
+
+	switch pgErr.ConstraintName {
+	case "prendas_tipo_prenda_id_fkey":
+		return ErrTipoPrendaNoEncontrado
+	case "prendas_pedido_id_fkey":
 		return ErrEstadoPedidoNoEncontrado
 	default:
 		return nil

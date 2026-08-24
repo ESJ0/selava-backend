@@ -22,7 +22,15 @@ type Pedido struct {
 // registrar un pedido. El usuario y el estado inicial los determina el
 // backend a partir del token y del catalogo de estados, respectivamente.
 type PedidoCreateRequest struct {
-	ClienteID            int        `json:"cliente_id"`
-	FechaEntregaEstimada *time.Time `json:"fecha_entrega_estimada,omitempty"`
-	Observaciones        *string    `json:"observaciones,omitempty"`
+	ClienteID            int                   `json:"cliente_id"`
+	FechaEntregaEstimada *time.Time            `json:"fecha_entrega_estimada,omitempty"`
+	Observaciones        *string               `json:"observaciones,omitempty"`
+	Prendas              []PrendaCreateRequest `json:"prendas"`
+}
+
+// PedidoConPrendas es la respuesta que se devuelve al crear un pedido:
+// el pedido junto con las prendas que quedaron registradas.
+type PedidoConPrendas struct {
+	Pedido
+	Prendas []Prenda `json:"prendas"`
 }
