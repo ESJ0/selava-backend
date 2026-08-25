@@ -59,6 +59,8 @@ func (pc *PrendaController) handleServiceError(w http.ResponseWriter, err error)
 		respondError(w, http.StatusNotFound, "pedido no encontrado")
 	case errors.Is(err, repository.ErrTipoPrendaNoEncontrado):
 		respondError(w, http.StatusNotFound, "tipo de prenda no encontrado")
+	case errors.Is(err, repository.ErrServicioNoEncontrado):
+		respondError(w, http.StatusNotFound, "servicio no encontrado o inactivo")
 	default:
 		respondError(w, http.StatusInternalServerError, "error interno del servidor")
 	}

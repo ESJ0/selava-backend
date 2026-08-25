@@ -60,6 +60,8 @@ func (pc *PedidoController) handleServiceError(w http.ResponseWriter, err error)
 		respondError(w, http.StatusUnauthorized, "usuario autenticado no encontrado")
 	case errors.Is(err, repository.ErrTipoPrendaNoEncontrado):
 		respondError(w, http.StatusNotFound, "tipo de prenda no encontrado")
+	case errors.Is(err, repository.ErrServicioNoEncontrado):
+		respondError(w, http.StatusNotFound, "servicio no encontrado o inactivo")
 	case errors.Is(err, repository.ErrEstadoPedidoNoEncontrado):
 		respondError(w, http.StatusInternalServerError, "estado inicial de pedido no configurado")
 	default:

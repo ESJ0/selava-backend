@@ -37,12 +37,24 @@ func (r *PedidoRepository) Create(ctx context.Context, req *models.PedidoCreateR
 	}
 
 	prendas := make([]models.Prenda, 0, len(req.Prendas))
+	var total float64
 	for _, prendaReq := range req.Prendas {
 		prenda, err := r.insertPrenda(ctx, tx, pedido.ID, prendaReq)
 		if err != nil {
 			return nil, err
 		}
+		for _, servicioReq := range prendaReq.Servicios {
+			relacion, err := r.insertPrendaServicio(ctx, tx, prenda.ID, servicioReq.ServicioID)
+			if err != nil {
+				return nil, err
+			}
+			prenda.Servicios = append(prenda.Servicios, *relacion)
+			total += float64(prenda.Cantidad) * relacion.PrecioAplicado
+		}
 		prendas = append(prendas, *prenda)
+	}
+	if err := tx.QueryRow(ctx, `UPDATE pedidos SET total=$1, updated_at=NOW() WHERE id=$2 RETURNING total, updated_at`, total, pedido.ID).Scan(&pedido.Total, &pedido.UpdatedAt); err != nil {
+		return nil, fmt.Errorf("error actualizando total del pedido: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -101,12 +113,27 @@ func (r *PedidoRepository) insertPrenda(ctx context.Context, tx pgx.Tx, pedidoID
 		&prenda.Cantidad, &prenda.Color, &prenda.CreatedAt, &prenda.UpdatedAt,
 	)
 	if err != nil {
-		if mappedErr := prendaForeignKeyError(err); mappedErr != nil {
+		if mappedErr := pedidoPrendaForeignKeyError(err); mappedErr != nil {
 			return nil, mappedErr
 		}
 		return nil, fmt.Errorf("error creando prenda: %w", err)
 	}
 	return &prenda, nil
+}
+
+func (r *PedidoRepository) insertPrendaServicio(ctx context.Context, tx pgx.Tx, prendaID, servicioID int) (*models.PrendaServicio, error) {
+	const query = `INSERT INTO prenda_servicios(prenda_id, servicio_id, precio_aplicado)
+		SELECT $1, id, precio_base FROM servicios WHERE id=$2 AND activo=TRUE
+		RETURNING id, prenda_id, servicio_id, precio_aplicado`
+	var relacion models.PrendaServicio
+	err := tx.QueryRow(ctx, query, prendaID, servicioID).Scan(&relacion.ID, &relacion.PrendaID, &relacion.ServicioID, &relacion.PrecioAplicado)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrServicioNoEncontrado
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error asociando servicio a prenda: %w", err)
+	}
+	return &relacion, nil
 }
 
 func pedidoForeignKeyError(err error) error {
@@ -127,7 +154,7 @@ func pedidoForeignKeyError(err error) error {
 	}
 }
 
-func prendaForeignKeyError(err error) error {
+func pedidoPrendaForeignKeyError(err error) error {
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.Code != "23503" {
 		return nil

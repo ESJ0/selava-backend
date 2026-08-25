@@ -792,7 +792,7 @@ components:
 
     PrendaCreateRequest:
       type: object
-      required: [tipo_prenda_id, cantidad]
+      required: [tipo_prenda_id, cantidad, servicios]
       properties:
         tipo_prenda_id:
           type: integer
@@ -807,7 +807,18 @@ components:
           example: 3
         color:
           type: string
+          maxLength: 30
           example: Azul
+        servicios:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [servicio_id]
+            properties:
+              servicio_id:
+                type: integer
+                minimum: 1
 
     Prenda:
       type: object
@@ -838,6 +849,23 @@ components:
         updated_at:
           type: string
           format: date-time
+        servicios:
+          type: array
+          items:
+            $ref: "#/components/schemas/PrendaServicio"
+
+    PrendaServicio:
+      type: object
+      properties:
+        id:
+          type: integer
+        prenda_id:
+          type: integer
+        servicio_id:
+          type: integer
+        precio_aplicado:
+          type: number
+          format: double
 
     PedidoConPrendas:
       description: Un pedido junto con las prendas que quedaron registradas en la misma operacion.

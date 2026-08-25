@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ESJ0/selava-backend/internal/models"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -60,7 +61,21 @@ func (r *PrendaRepository) CreateMany(ctx context.Context, pedidoID int, reqs []
 			}
 			return nil, fmt.Errorf("error creando prenda: %w", err)
 		}
+		for _, servicioReq := range req.Servicios {
+			var relacion models.PrendaServicio
+			err := tx.QueryRow(ctx, `INSERT INTO prenda_servicios(prenda_id,servicio_id,precio_aplicado) SELECT $1,id,precio_base FROM servicios WHERE id=$2 AND activo=TRUE RETURNING id,prenda_id,servicio_id,precio_aplicado`, prenda.ID, servicioReq.ServicioID).Scan(&relacion.ID, &relacion.PrendaID, &relacion.ServicioID, &relacion.PrecioAplicado)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, ErrServicioNoEncontrado
+			}
+			if err != nil {
+				return nil, fmt.Errorf("error asociando servicio a prenda: %w", err)
+			}
+			prenda.Servicios = append(prenda.Servicios, relacion)
+		}
 		prendas = append(prendas, prenda)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE pedidos SET total=(SELECT COALESCE(SUM(p.cantidad*ps.precio_aplicado),0) FROM prendas p JOIN prenda_servicios ps ON ps.prenda_id=p.id WHERE p.pedido_id=$1),updated_at=NOW() WHERE id=$1`, pedidoID); err != nil {
+		return nil, fmt.Errorf("error actualizando total: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

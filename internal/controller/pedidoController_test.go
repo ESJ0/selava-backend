@@ -88,8 +88,8 @@ func TestPedidoControllerCrearReturnsCreated(t *testing.T) {
 	req := authenticatedPedidoRequest(t, `{
 		"cliente_id": 1,
 		"prendas": [
-			{"tipo_prenda_id": 2, "cantidad": 3},
-			{"tipo_prenda_id": 5, "cantidad": 1}
+			{"tipo_prenda_id": 2, "cantidad": 3, "servicios":[{"servicio_id":1}]},
+			{"tipo_prenda_id": 5, "cantidad": 1, "servicios":[{"servicio_id":2}]}
 		]
 	}`)
 
@@ -135,7 +135,7 @@ func TestPedidoControllerCrearRejectsCantidadInvalida(t *testing.T) {
 	controller := newPedidoControllerForTest(nil)
 	req := authenticatedPedidoRequest(t, `{
 		"cliente_id": 1,
-		"prendas": [{"tipo_prenda_id": 2, "cantidad": 0}]
+		"prendas": [{"tipo_prenda_id": 2, "cantidad": 0, "servicios":[{"servicio_id":1}]}]
 	}`)
 
 	res := servePedidoCrear(controller, req)
@@ -149,7 +149,7 @@ func TestPedidoControllerCrearReturnsNotFoundWhenClienteMissing(t *testing.T) {
 	controller := newPedidoControllerForTest(repository.ErrClienteNoEncontrado)
 	req := authenticatedPedidoRequest(t, `{
 		"cliente_id": 999,
-		"prendas": [{"tipo_prenda_id": 2, "cantidad": 1}]
+		"prendas": [{"tipo_prenda_id": 2, "cantidad": 1, "servicios":[{"servicio_id":1}]}]
 	}`)
 
 	res := servePedidoCrear(controller, req)
@@ -163,7 +163,7 @@ func TestPedidoControllerCrearReturnsNotFoundWhenTipoPrendaMissing(t *testing.T)
 	controller := newPedidoControllerForTest(repository.ErrTipoPrendaNoEncontrado)
 	req := authenticatedPedidoRequest(t, `{
 		"cliente_id": 1,
-		"prendas": [{"tipo_prenda_id": 999, "cantidad": 1}]
+		"prendas": [{"tipo_prenda_id": 999, "cantidad": 1, "servicios":[{"servicio_id":1}]}]
 	}`)
 
 	res := servePedidoCrear(controller, req)
