@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -47,8 +49,12 @@ func envOrDefault(key, fallback string) string {
 }
 
 func (c *Config) DSN() string {
-	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		c.DBUser, c.DBPassword, c.DBHost, c.DBPort, c.DBName,
-	)
+	dsn := &url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(c.DBUser, c.DBPassword),
+		Host:     net.JoinHostPort(c.DBHost, c.DBPort),
+		Path:     c.DBName,
+		RawQuery: "sslmode=disable",
+	}
+	return dsn.String()
 }
