@@ -10,13 +10,14 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, tipoPrendaController *controller.TipoPrendaController, pedidoController *controller.PedidoController, prendaController *controller.PrendaController, authController *controller.AuthController, jwtSecret string) *chi.Mux {
+func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, prendaController *controller.PrendaController, authController *controller.AuthController, jwtSecret, allowedOrigins string) *chi.Mux {
 	r := chi.NewRouter()
 	authMW := authmiddleware.NewAuthMiddleware(jwtSecret)
 
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.RealIP)
 	r.Use(chimiddleware.Timeout(5 * time.Second))
+	r.Use(authmiddleware.CORS(allowedOrigins))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -56,6 +57,16 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 		r.Get("/{id}", tipoPrendaController.Obtener)
 		r.Put("/{id}", tipoPrendaController.Actualizar)
 		r.Delete("/{id}", tipoPrendaController.Eliminar)
+	})
+
+	r.Route("/api/metodos-pago", func(r chi.Router) {
+		r.Use(authMW.Authenticate)
+		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolEmpleado))
+		r.Post("/", metodoPagoController.Crear)
+		r.Get("/", metodoPagoController.Listar)
+		r.Get("/{id}", metodoPagoController.Obtener)
+		r.Put("/{id}", metodoPagoController.Actualizar)
+		r.Delete("/{id}", metodoPagoController.Eliminar)
 	})
 
 	r.Route("/api/pedidos", func(r chi.Router) {

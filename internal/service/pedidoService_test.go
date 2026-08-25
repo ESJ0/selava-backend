@@ -72,8 +72,8 @@ func validPedidoRequest() *models.PedidoCreateRequest {
 	return &models.PedidoCreateRequest{
 		ClienteID: 1,
 		Prendas: []models.PrendaCreateRequest{
-			{TipoPrendaID: 1, Cantidad: 2},
-			{TipoPrendaID: 3, Cantidad: 1},
+			{TipoPrendaID: 1, Cantidad: 2, Servicios: []models.PrendaServicioCreateRequest{{ServicioID: 1}}},
+			{TipoPrendaID: 3, Cantidad: 1, Servicios: []models.PrendaServicioCreateRequest{{ServicioID: 2}}},
 		},
 	}
 }
@@ -210,8 +210,8 @@ func TestPedidoServiceCrearPedidoAcumulaErroresDeVariasPrendas(t *testing.T) {
 	req := &models.PedidoCreateRequest{
 		ClienteID: 0,
 		Prendas: []models.PrendaCreateRequest{
-			{TipoPrendaID: 0, Cantidad: 0},
-			{TipoPrendaID: 2, Cantidad: -1},
+			{TipoPrendaID: 0, Cantidad: 0, Servicios: []models.PrendaServicioCreateRequest{{ServicioID: 1}}},
+			{TipoPrendaID: 2, Cantidad: -1, Servicios: []models.PrendaServicioCreateRequest{{ServicioID: 1}}},
 		},
 	}
 

@@ -48,6 +48,25 @@ func validatePrendaCreate(index int, prenda models.PrendaCreateRequest) Validati
 			Message: "no puede estar vacío",
 		})
 	}
+	if prenda.Color != nil && len(*prenda.Color) > 30 {
+		errs = append(errs, FieldError{Field: fmt.Sprintf("prendas[%d].color", index), Message: "no puede superar los 30 caracteres"})
+	}
+	if prenda.Descripcion != nil && len(*prenda.Descripcion) > 255 {
+		errs = append(errs, FieldError{Field: fmt.Sprintf("prendas[%d].descripcion", index), Message: "no puede superar los 255 caracteres"})
+	}
+	if len(prenda.Servicios) == 0 {
+		errs = append(errs, FieldError{Field: fmt.Sprintf("prendas[%d].servicios", index), Message: "debe incluir al menos un servicio"})
+	}
+	seen := map[int]bool{}
+	for j, s := range prenda.Servicios {
+		if s.ServicioID <= 0 {
+			errs = append(errs, FieldError{Field: fmt.Sprintf("prendas[%d].servicios[%d].servicio_id", index, j), Message: "debe ser un entero positivo"})
+		}
+		if seen[s.ServicioID] {
+			errs = append(errs, FieldError{Field: fmt.Sprintf("prendas[%d].servicios[%d].servicio_id", index, j), Message: "no puede repetirse"})
+		}
+		seen[s.ServicioID] = true
+	}
 
 	return errs
 }

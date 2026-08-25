@@ -39,6 +39,9 @@ func main() {
 	tipoPrendaRepo := repository.NewTipoPrendaRepository(db)
 	tipoPrendaService := service.NewTipoPrendaService(tipoPrendaRepo)
 	tipoPrendaController := controller.NewTipoPrendaController(tipoPrendaService)
+	metodoPagoRepo := repository.NewMetodoPagoRepository(db)
+	metodoPagoService := service.NewMetodoPagoService(metodoPagoRepo)
+	metodoPagoController := controller.NewMetodoPagoController(metodoPagoService)
 	pedidoRepo := repository.NewPedidoRepository(db)
 	pedidoService := service.NewPedidoService(pedidoRepo)
 	pedidoController := controller.NewPedidoController(pedidoService)
@@ -49,7 +52,7 @@ func main() {
 	authService := service.NewAuthService(usuarioRepo, cfg.JWTSecret)
 	authController := controller.NewAuthController(authService)
 
-	router := routes.NewRouter(clienteController, servicioController, tipoPrendaController, pedidoController, prendaController, authController, cfg.JWTSecret)
+	router := routes.NewRouter(clienteController, servicioController, tipoPrendaController, metodoPagoController, pedidoController, prendaController, authController, cfg.JWTSecret, cfg.AllowedOrigins)
 
 	port := cfg.Port
 	if port == "" {
