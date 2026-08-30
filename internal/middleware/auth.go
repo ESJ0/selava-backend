@@ -15,7 +15,8 @@ const claimsContextKey contextKey = "auth_claims"
 
 const (
 	RolAdministrador = 1
-	RolEmpleado      = 2
+	RolRecepcionista = 2
+	RolOperario      = 3
 )
 
 type AuthMiddleware struct {

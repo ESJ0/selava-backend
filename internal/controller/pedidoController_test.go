@@ -67,7 +67,7 @@ func (r *fakePedidoRepository) Create(ctx context.Context, req *models.PedidoCre
 // vez de forjar el contexto directamente (claimsContextKey es privado).
 func authenticatedPedidoRequest(t *testing.T, body string) *http.Request {
 	t.Helper()
-	token, err := auth.GenerateToken(pedidoTestSecret, 7, middleware.RolEmpleado)
+	token, err := auth.GenerateToken(pedidoTestSecret, 7, middleware.RolRecepcionista)
 	if err != nil {
 		t.Fatalf("generating token: %v", err)
 	}

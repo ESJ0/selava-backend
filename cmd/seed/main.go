@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
+	"log"
+	"os"
+
 	"github.com/ESJ0/selava-backend/internal/auth"
 	"github.com/ESJ0/selava-backend/internal/config"
 	"github.com/ESJ0/selava-backend/internal/database"
-	"log"
-	"os"
 )
 
 func main() {
@@ -33,11 +34,10 @@ func main() {
 		log.Fatal(err)
 	}
 	defer tx.Rollback(ctx)
-	for _, role := range []string{"Administrador", "Empleado"} {
-		if _, err = tx.Exec(ctx, `INSERT INTO roles(nombre) VALUES($1) ON CONFLICT(nombre) DO UPDATE SET activo=TRUE`, role); err != nil {
-			log.Fatal(err)
-		}
-	}
+	// Los roles (Administrador, Recepcionista, Operario) ya existen para
+	// este punto: los crea la migracion 016, igual que estados_pedido se
+	// siembra por migracion en vez de por este script. Aqui solo se usa
+	// el rol Administrador, que ya deberia estar en la base de datos.
 	if _, err = tx.Exec(ctx, `INSERT INTO usuarios(rol_id,nombre,apellido,email,password_hash,telefono) SELECT id,'Admin','SeLava',$1,$2,'00000000' FROM roles WHERE nombre='Administrador' ON CONFLICT(email) DO UPDATE SET password_hash=EXCLUDED.password_hash,activo=TRUE`, email, hash); err != nil {
 		log.Fatal(err)
 	}

@@ -28,7 +28,7 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 
 	r.Route("/api/clientes", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
-		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolEmpleado))
+		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista))
 
 		r.Post("/", clienteController.Crear)
 		r.Get("/", clienteController.Listar)
@@ -39,7 +39,7 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 
 	r.Route("/api/servicios", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
-		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolEmpleado))
+		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista))
 
 		r.Post("/", servicioController.Crear)
 		r.Get("/", servicioController.Listar)
@@ -50,7 +50,7 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 
 	r.Route("/api/tipos-prenda", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
-		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolEmpleado))
+		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista))
 
 		r.Post("/", tipoPrendaController.Crear)
 		r.Get("/", tipoPrendaController.Listar)
@@ -61,7 +61,7 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 
 	r.Route("/api/metodos-pago", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
-		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolEmpleado))
+		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista))
 		r.Post("/", metodoPagoController.Crear)
 		r.Get("/", metodoPagoController.Listar)
 		r.Get("/{id}", metodoPagoController.Obtener)
@@ -71,7 +71,7 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 
 	r.Route("/api/pedidos", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
-		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolEmpleado))
+		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista))
 
 		r.Post("/", pedidoController.Crear)
 		r.Post("/{pedidoID}/prendas", prendaController.CrearVarias)
