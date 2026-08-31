@@ -11,7 +11,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var ErrEstadoPedidoNoEncontrado = errors.New("estado inicial de pedido no encontrado")
+var (
+	ErrEstadoPedidoNoEncontrado        = errors.New("estado inicial de pedido no encontrado")
+	ErrEstadoPedidoDestinoNoEncontrado = errors.New("estado de pedido no encontrado")
+)
 
 type PedidoRepository struct {
 	db *pgxpool.Pool
@@ -37,7 +40,6 @@ func (r *PedidoRepository) Create(ctx context.Context, req *models.PedidoCreateR
 	}
 
 	prendas := make([]models.Prenda, 0, len(req.Prendas))
-	var total float64
 	for _, prendaReq := range req.Prendas {
 		prenda, err := r.insertPrenda(ctx, tx, pedido.ID, prendaReq)
 		if err != nil {
@@ -49,12 +51,12 @@ func (r *PedidoRepository) Create(ctx context.Context, req *models.PedidoCreateR
 				return nil, err
 			}
 			prenda.Servicios = append(prenda.Servicios, *relacion)
-			total += float64(prenda.Cantidad) * relacion.PrecioAplicado
 		}
 		prendas = append(prendas, *prenda)
 	}
-	if err := tx.QueryRow(ctx, `UPDATE pedidos SET total=$1, updated_at=NOW() WHERE id=$2 RETURNING total, updated_at`, total, pedido.ID).Scan(&pedido.Total, &pedido.UpdatedAt); err != nil {
-		return nil, fmt.Errorf("error actualizando total del pedido: %w", err)
+	pedido.Total, pedido.UpdatedAt, err = recalcularTotalPedido(ctx, tx, pedido.ID)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -62,6 +64,68 @@ func (r *PedidoRepository) Create(ctx context.Context, req *models.PedidoCreateR
 	}
 
 	return &models.PedidoConPrendas{Pedido: *pedido, Prendas: prendas}, nil
+}
+
+func (r *PedidoRepository) UpdateEstado(ctx context.Context, pedidoID int, req *models.PedidoEstadoUpdateRequest, usuarioID int) (*models.PedidoEstadoHistorial, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error iniciando cambio de estado: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var pedidoBloqueadoID int
+	if err := tx.QueryRow(ctx,
+		`SELECT id FROM pedidos WHERE id = $1 AND activo = TRUE FOR UPDATE`,
+		pedidoID,
+	).Scan(&pedidoBloqueadoID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrPedidoNoEncontrado
+		}
+		return nil, fmt.Errorf("error verificando pedido: %w", err)
+	}
+
+	var estadoBloqueadoID int
+	if err := tx.QueryRow(ctx,
+		`SELECT id FROM estados_pedido WHERE id = $1 FOR KEY SHARE`,
+		req.EstadoID,
+	).Scan(&estadoBloqueadoID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrEstadoPedidoDestinoNoEncontrado
+		}
+		return nil, fmt.Errorf("error verificando estado de pedido: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE pedidos SET estado_actual_id = $1, updated_at = NOW() WHERE id = $2`,
+		req.EstadoID, pedidoID,
+	); err != nil {
+		return nil, fmt.Errorf("error actualizando estado del pedido: %w", err)
+	}
+
+	const query = `
+		INSERT INTO pedido_estados_historial (
+			pedido_id, estado_id, usuario_id, observaciones
+		)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, pedido_id, estado_id, usuario_id,
+		          fecha_cambio, observaciones, created_at`
+	var historial models.PedidoEstadoHistorial
+	err = tx.QueryRow(ctx, query, pedidoID, req.EstadoID, usuarioID, req.Observaciones).Scan(
+		&historial.ID, &historial.PedidoID, &historial.EstadoID,
+		&historial.UsuarioID, &historial.FechaCambio,
+		&historial.Observaciones, &historial.CreatedAt,
+	)
+	if err != nil {
+		if mappedErr := pedidoEstadoHistorialForeignKeyError(err); mappedErr != nil {
+			return nil, mappedErr
+		}
+		return nil, fmt.Errorf("error registrando historial del pedido: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("error confirmando cambio de estado: %w", err)
+	}
+	return &historial, nil
 }
 
 func (r *PedidoRepository) insertPedido(ctx context.Context, tx pgx.Tx, req *models.PedidoCreateRequest, usuarioID int) (*models.Pedido, error) {
@@ -168,6 +232,24 @@ func pedidoPrendaForeignKeyError(err error) error {
 		return ErrTipoPrendaNoEncontrado
 	case "prendas_pedido_id_fkey":
 		return ErrEstadoPedidoNoEncontrado
+	default:
+		return nil
+	}
+}
+
+func pedidoEstadoHistorialForeignKeyError(err error) error {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23503" {
+		return nil
+	}
+
+	switch pgErr.ConstraintName {
+	case "pedido_estados_historial_pedido_id_fkey":
+		return ErrPedidoNoEncontrado
+	case "pedido_estados_historial_estado_id_fkey":
+		return ErrEstadoPedidoDestinoNoEncontrado
+	case "pedido_estados_historial_usuario_id_fkey":
+		return ErrUsuarioNoEncontrado
 	default:
 		return nil
 	}

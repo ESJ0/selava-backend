@@ -71,10 +71,10 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 
 	r.Route("/api/pedidos", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
-		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista))
 
-		r.Post("/", pedidoController.Crear)
-		r.Post("/{pedidoID}/prendas", prendaController.CrearVarias)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Post("/", pedidoController.Crear)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Post("/{pedidoID}/prendas", prendaController.CrearVarias)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista, authmiddleware.RolOperario)).Put("/{pedidoID}/estado", pedidoController.ActualizarEstado)
 	})
 
 	r.Route("/api/prendas", func(r chi.Router) {
