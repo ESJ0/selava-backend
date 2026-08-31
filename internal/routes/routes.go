@@ -77,5 +77,13 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 		r.Post("/{pedidoID}/prendas", prendaController.CrearVarias)
 	})
 
+	r.Route("/api/prendas", func(r chi.Router) {
+		r.Use(authMW.Authenticate)
+		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista))
+
+		r.Post("/{prendaID}/servicios", prendaController.AsociarServicio)
+		r.Delete("/{prendaID}/servicios/{servicioID}", prendaController.QuitarServicio)
+	})
+
 	return r
 }

@@ -11,7 +11,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var ErrPedidoNoEncontrado = errors.New("pedido no encontrado")
+var (
+	ErrPedidoNoEncontrado         = errors.New("pedido no encontrado")
+	ErrPrendaNoEncontrada         = errors.New("prenda no encontrada")
+	ErrPrendaServicioYaAsociado   = errors.New("el servicio ya esta asociado a la prenda")
+	ErrPrendaServicioNoEncontrado = errors.New("el servicio no esta asociado a la prenda")
+)
 
 type PrendaRepository struct {
 	db *pgxpool.Pool
@@ -85,6 +90,115 @@ func (r *PrendaRepository) CreateMany(ctx context.Context, pedidoID int, reqs []
 		return nil, fmt.Errorf("error confirmando prendas: %w", err)
 	}
 	return prendas, nil
+}
+
+func (r *PrendaRepository) AddServicio(ctx context.Context, prendaID, servicioID int) (*models.PrendaServicio, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error iniciando transaccion para asociar servicio: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	pedidoID, err := lockPedidoDePrenda(ctx, tx, prendaID)
+	if err != nil {
+		return nil, err
+	}
+
+	const query = `
+		INSERT INTO prenda_servicios (prenda_id, servicio_id, precio_aplicado)
+		SELECT $1, id, precio_base
+		FROM servicios
+		WHERE id = $2 AND activo = TRUE
+		RETURNING id, prenda_id, servicio_id, precio_aplicado, created_at, updated_at`
+
+	var relacion models.PrendaServicio
+	err = tx.QueryRow(ctx, query, prendaID, servicioID).Scan(
+		&relacion.ID, &relacion.PrendaID, &relacion.ServicioID,
+		&relacion.PrecioAplicado, &relacion.CreatedAt, &relacion.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrServicioNoEncontrado
+	}
+	if isUniqueViolation(err) {
+		return nil, ErrPrendaServicioYaAsociado
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error asociando servicio a prenda: %w", err)
+	}
+
+	if err := actualizarTotalPedido(ctx, tx, pedidoID); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("error confirmando asociacion de servicio: %w", err)
+	}
+	return &relacion, nil
+}
+
+func (r *PrendaRepository) RemoveServicio(ctx context.Context, prendaID, servicioID int) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("error iniciando transaccion para quitar servicio: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	pedidoID, err := lockPedidoDePrenda(ctx, tx, prendaID)
+	if err != nil {
+		return err
+	}
+
+	tag, err := tx.Exec(ctx,
+		`DELETE FROM prenda_servicios WHERE prenda_id = $1 AND servicio_id = $2`,
+		prendaID, servicioID,
+	)
+	if err != nil {
+		return fmt.Errorf("error quitando servicio de prenda: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrPrendaServicioNoEncontrado
+	}
+
+	if err := actualizarTotalPedido(ctx, tx, pedidoID); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("error confirmando eliminacion de servicio: %w", err)
+	}
+	return nil
+}
+
+func lockPedidoDePrenda(ctx context.Context, tx pgx.Tx, prendaID int) (int, error) {
+	const query = `
+		SELECT p.pedido_id
+		FROM prendas p
+		JOIN pedidos pe ON pe.id = p.pedido_id
+		WHERE p.id = $1
+		FOR UPDATE OF p, pe`
+
+	var pedidoID int
+	if err := tx.QueryRow(ctx, query, prendaID).Scan(&pedidoID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrPrendaNoEncontrada
+		}
+		return 0, fmt.Errorf("error verificando prenda: %w", err)
+	}
+	return pedidoID, nil
+}
+
+func actualizarTotalPedido(ctx context.Context, tx pgx.Tx, pedidoID int) error {
+	const query = `
+		UPDATE pedidos
+		SET total = (
+			SELECT COALESCE(SUM(p.cantidad * ps.precio_aplicado), 0)
+			FROM prendas p
+			JOIN prenda_servicios ps ON ps.prenda_id = p.id
+			WHERE p.pedido_id = $1
+		), updated_at = NOW()
+		WHERE id = $1`
+	if _, err := tx.Exec(ctx, query, pedidoID); err != nil {
+		return fmt.Errorf("error actualizando total del pedido: %w", err)
+	}
+	return nil
 }
 
 func prendaForeignKeyError(err error) error {
