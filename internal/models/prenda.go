@@ -16,13 +16,6 @@ type PrendaServicioCreateRequest struct {
 	ServicioID int `json:"servicio_id"`
 }
 
-type PrendaServicio struct {
-	ID             int     `json:"id"`
-	PrendaID       int     `json:"prenda_id"`
-	ServicioID     int     `json:"servicio_id"`
-	PrecioAplicado float64 `json:"precio_aplicado"`
-}
-
 // Prenda representa un registro de la tabla prendas.
 type Prenda struct {
 	ID           int              `json:"id"`

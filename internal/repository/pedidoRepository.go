@@ -124,9 +124,12 @@ func (r *PedidoRepository) insertPrenda(ctx context.Context, tx pgx.Tx, pedidoID
 func (r *PedidoRepository) insertPrendaServicio(ctx context.Context, tx pgx.Tx, prendaID, servicioID int) (*models.PrendaServicio, error) {
 	const query = `INSERT INTO prenda_servicios(prenda_id, servicio_id, precio_aplicado)
 		SELECT $1, id, precio_base FROM servicios WHERE id=$2 AND activo=TRUE
-		RETURNING id, prenda_id, servicio_id, precio_aplicado`
+		RETURNING id, prenda_id, servicio_id, precio_aplicado, created_at, updated_at`
 	var relacion models.PrendaServicio
-	err := tx.QueryRow(ctx, query, prendaID, servicioID).Scan(&relacion.ID, &relacion.PrendaID, &relacion.ServicioID, &relacion.PrecioAplicado)
+	err := tx.QueryRow(ctx, query, prendaID, servicioID).Scan(
+		&relacion.ID, &relacion.PrendaID, &relacion.ServicioID,
+		&relacion.PrecioAplicado, &relacion.CreatedAt, &relacion.UpdatedAt,
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrServicioNoEncontrado
 	}
