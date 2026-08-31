@@ -68,6 +68,20 @@ func (r *fakePedidoRepo) Create(ctx context.Context, req *models.PedidoCreateReq
 	return &models.PedidoConPrendas{Pedido: pedido, Prendas: prendas}, nil
 }
 
+func (r *fakePedidoRepo) UpdateEstado(_ context.Context, pedidoID int, req *models.PedidoEstadoUpdateRequest, usuarioID int) (*models.PedidoEstadoHistorial, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	r.lastUsuario = usuarioID
+	return &models.PedidoEstadoHistorial{
+		ID:            1,
+		PedidoID:      pedidoID,
+		EstadoID:      req.EstadoID,
+		UsuarioID:     usuarioID,
+		Observaciones: req.Observaciones,
+	}, nil
+}
+
 func validPedidoRequest() *models.PedidoCreateRequest {
 	return &models.PedidoCreateRequest{
 		ClienteID: 1,
@@ -101,6 +115,40 @@ func TestPedidoServiceCrearPedidoPersistsPedidoYPrendas(t *testing.T) {
 	}
 	if repo.lastUsuario != 7 {
 		t.Fatalf("expected usuarioID 7 to be forwarded, got %d", repo.lastUsuario)
+	}
+}
+
+func TestPedidoServiceActualizarEstadoNormalizaYPersiste(t *testing.T) {
+	repo := newFakePedidoRepo()
+	service := NewPedidoService(repo)
+	observaciones := "  En proceso  "
+
+	historial, err := service.ActualizarEstado(context.Background(), 4, &models.PedidoEstadoUpdateRequest{
+		EstadoID:      2,
+		Observaciones: &observaciones,
+	}, 7)
+	if err != nil {
+		t.Fatalf("ActualizarEstado returned error: %v", err)
+	}
+	if historial.PedidoID != 4 || historial.EstadoID != 2 || historial.UsuarioID != 7 {
+		t.Fatalf("unexpected historial: %+v", historial)
+	}
+	if historial.Observaciones == nil || *historial.Observaciones != "En proceso" {
+		t.Fatalf("expected trimmed observations, got %+v", historial.Observaciones)
+	}
+}
+
+func TestPedidoServiceActualizarEstadoRechazaEstadoInvalido(t *testing.T) {
+	service := NewPedidoService(newFakePedidoRepo())
+
+	_, err := service.ActualizarEstado(context.Background(), 4, &models.PedidoEstadoUpdateRequest{}, 7)
+
+	var validationErrors validator.ValidationErrors
+	if !errors.As(err, &validationErrors) {
+		t.Fatalf("expected ValidationErrors, got %v", err)
+	}
+	if !hasFieldError(validationErrors, "estado_id") {
+		t.Fatalf("expected error on estado_id, got %+v", validationErrors)
 	}
 }
 

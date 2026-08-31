@@ -14,6 +14,7 @@ import (
 	"github.com/ESJ0/selava-backend/internal/models"
 	"github.com/ESJ0/selava-backend/internal/repository"
 	servicelayer "github.com/ESJ0/selava-backend/internal/service"
+	"github.com/go-chi/chi/v5"
 )
 
 const pedidoTestSecret = "secret"
@@ -62,6 +63,22 @@ func (r *fakePedidoRepository) Create(ctx context.Context, req *models.PedidoCre
 	return &models.PedidoConPrendas{Pedido: pedido, Prendas: prendas}, nil
 }
 
+func (r *fakePedidoRepository) UpdateEstado(_ context.Context, pedidoID int, req *models.PedidoEstadoUpdateRequest, usuarioID int) (*models.PedidoEstadoHistorial, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	now := time.Now()
+	return &models.PedidoEstadoHistorial{
+		ID:            1,
+		PedidoID:      pedidoID,
+		EstadoID:      req.EstadoID,
+		UsuarioID:     usuarioID,
+		FechaCambio:   now,
+		Observaciones: req.Observaciones,
+		CreatedAt:     now,
+	}, nil
+}
+
 // authenticatedRequest arma un POST /api/pedidos con un JWT valido, para
 // pasar por el mismo camino que usa el middleware real en produccion en
 // vez de forjar el contexto directamente (claimsContextKey es privado).
@@ -81,6 +98,66 @@ func servePedidoCrear(controller *PedidoController, req *http.Request) *httptest
 	res := httptest.NewRecorder()
 	mw.Authenticate(http.HandlerFunc(controller.Crear)).ServeHTTP(res, req)
 	return res
+}
+
+func authenticatedPedidoEstadoRequest(t *testing.T, body string) *http.Request {
+	t.Helper()
+	token, err := auth.GenerateToken(pedidoTestSecret, 7, middleware.RolOperario)
+	if err != nil {
+		t.Fatalf("generating token: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPut, "/api/pedidos/3/estado", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	return req
+}
+
+func servePedidoActualizarEstado(controller *PedidoController, req *http.Request) *httptest.ResponseRecorder {
+	mw := middleware.NewAuthMiddleware(pedidoTestSecret)
+	router := chi.NewRouter()
+	router.With(mw.Authenticate).Put("/api/pedidos/{pedidoID}/estado", controller.ActualizarEstado)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	return res
+}
+
+func TestPedidoControllerActualizarEstadoReturnsOK(t *testing.T) {
+	controller := newPedidoControllerForTest(nil)
+	req := authenticatedPedidoEstadoRequest(t, `{"estado_id":2,"observaciones":"En lavado"}`)
+
+	res := servePedidoActualizarEstado(controller, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, res.Code, res.Body.String())
+	}
+	var body models.PedidoEstadoHistorial
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatalf("decoding response: %v", err)
+	}
+	if body.PedidoID != 3 || body.EstadoID != 2 || body.UsuarioID != 7 {
+		t.Fatalf("unexpected historial: %+v", body)
+	}
+}
+
+func TestPedidoControllerActualizarEstadoRejectsEstadoInvalido(t *testing.T) {
+	controller := newPedidoControllerForTest(nil)
+	req := authenticatedPedidoEstadoRequest(t, `{"estado_id":0}`)
+
+	res := servePedidoActualizarEstado(controller, req)
+
+	if res.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusUnprocessableEntity, res.Code, res.Body.String())
+	}
+}
+
+func TestPedidoControllerActualizarEstadoReturnsNotFound(t *testing.T) {
+	controller := newPedidoControllerForTest(repository.ErrPedidoNoEncontrado)
+	req := authenticatedPedidoEstadoRequest(t, `{"estado_id":2}`)
+
+	res := servePedidoActualizarEstado(controller, req)
+
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, res.Code, res.Body.String())
+	}
 }
 
 func TestPedidoControllerCrearReturnsCreated(t *testing.T) {
