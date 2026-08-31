@@ -30,6 +30,8 @@ tags:
     description: Gestion del catalogo de metodos de pago aceptados
   - name: Pedidos
     description: Registro de pedidos de la lavanderia
+  - name: Prendas
+    description: Gestion de los servicios asociados a las prendas
 
 paths:
   /health:
@@ -126,6 +128,100 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "422":
           $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/prendas/{prendaID}/servicios:
+    post:
+      tags: [Prendas]
+      summary: Asocia un servicio a una prenda existente
+      description: >
+        Captura el precio base vigente del servicio como precio aplicado y
+        recalcula el total del pedido al que pertenece la prenda.
+      parameters:
+        - name: prendaID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrendaServicioCreateRequest"
+      responses:
+        "201":
+          description: Servicio asociado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrendaServicio"
+        "400":
+          description: ID de prenda o cuerpo de la peticion invalido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: La prenda o el servicio activo no existe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: El servicio ya esta asociado a la prenda
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/prendas/{prendaID}/servicios/{servicioID}:
+    delete:
+      tags: [Prendas]
+      summary: Quita un servicio de una prenda existente
+      description: Quita la asociacion y recalcula el total del pedido.
+      parameters:
+        - name: prendaID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: servicioID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "204":
+          description: Servicio quitado exitosamente
+        "400":
+          description: ID de prenda o servicio invalido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: La prenda o la asociacion no existe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
@@ -866,6 +962,21 @@ components:
         precio_aplicado:
           type: number
           format: double
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PrendaServicioCreateRequest:
+      type: object
+      required: [servicio_id]
+      properties:
+        servicio_id:
+          type: integer
+          minimum: 1
+          example: 3
 
     PedidoConPrendas:
       description: Un pedido junto con las prendas que quedaron registradas en la misma operacion.
