@@ -37,7 +37,6 @@ func (r *PedidoRepository) Create(ctx context.Context, req *models.PedidoCreateR
 	}
 
 	prendas := make([]models.Prenda, 0, len(req.Prendas))
-	var total float64
 	for _, prendaReq := range req.Prendas {
 		prenda, err := r.insertPrenda(ctx, tx, pedido.ID, prendaReq)
 		if err != nil {
@@ -49,12 +48,12 @@ func (r *PedidoRepository) Create(ctx context.Context, req *models.PedidoCreateR
 				return nil, err
 			}
 			prenda.Servicios = append(prenda.Servicios, *relacion)
-			total += float64(prenda.Cantidad) * relacion.PrecioAplicado
 		}
 		prendas = append(prendas, *prenda)
 	}
-	if err := tx.QueryRow(ctx, `UPDATE pedidos SET total=$1, updated_at=NOW() WHERE id=$2 RETURNING total, updated_at`, total, pedido.ID).Scan(&pedido.Total, &pedido.UpdatedAt); err != nil {
-		return nil, fmt.Errorf("error actualizando total del pedido: %w", err)
+	pedido.Total, pedido.UpdatedAt, err = recalcularTotalPedido(ctx, tx, pedido.ID)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {

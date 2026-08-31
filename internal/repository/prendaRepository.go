@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ESJ0/selava-backend/internal/models"
 	"github.com/jackc/pgx/v5"
@@ -82,8 +83,8 @@ func (r *PrendaRepository) CreateMany(ctx context.Context, pedidoID int, reqs []
 		}
 		prendas = append(prendas, prenda)
 	}
-	if _, err := tx.Exec(ctx, `UPDATE pedidos SET total=(SELECT COALESCE(SUM(p.cantidad*ps.precio_aplicado),0) FROM prendas p JOIN prenda_servicios ps ON ps.prenda_id=p.id WHERE p.pedido_id=$1),updated_at=NOW() WHERE id=$1`, pedidoID); err != nil {
-		return nil, fmt.Errorf("error actualizando total: %w", err)
+	if _, _, err := recalcularTotalPedido(ctx, tx, pedidoID); err != nil {
+		return nil, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -126,7 +127,7 @@ func (r *PrendaRepository) AddServicio(ctx context.Context, prendaID, servicioID
 		return nil, fmt.Errorf("error asociando servicio a prenda: %w", err)
 	}
 
-	if err := actualizarTotalPedido(ctx, tx, pedidoID); err != nil {
+	if _, _, err := recalcularTotalPedido(ctx, tx, pedidoID); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -158,7 +159,7 @@ func (r *PrendaRepository) RemoveServicio(ctx context.Context, prendaID, servici
 		return ErrPrendaServicioNoEncontrado
 	}
 
-	if err := actualizarTotalPedido(ctx, tx, pedidoID); err != nil {
+	if _, _, err := recalcularTotalPedido(ctx, tx, pedidoID); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -185,7 +186,7 @@ func lockPedidoDePrenda(ctx context.Context, tx pgx.Tx, prendaID int) (int, erro
 	return pedidoID, nil
 }
 
-func actualizarTotalPedido(ctx context.Context, tx pgx.Tx, pedidoID int) error {
+func recalcularTotalPedido(ctx context.Context, tx pgx.Tx, pedidoID int) (float64, time.Time, error) {
 	const query = `
 		UPDATE pedidos
 		SET total = (
@@ -194,11 +195,15 @@ func actualizarTotalPedido(ctx context.Context, tx pgx.Tx, pedidoID int) error {
 			JOIN prenda_servicios ps ON ps.prenda_id = p.id
 			WHERE p.pedido_id = $1
 		), updated_at = NOW()
-		WHERE id = $1`
-	if _, err := tx.Exec(ctx, query, pedidoID); err != nil {
-		return fmt.Errorf("error actualizando total del pedido: %w", err)
+		WHERE id = $1
+		RETURNING total, updated_at`
+
+	var total float64
+	var updatedAt time.Time
+	if err := tx.QueryRow(ctx, query, pedidoID).Scan(&total, &updatedAt); err != nil {
+		return 0, time.Time{}, fmt.Errorf("error recalculando total del pedido: %w", err)
 	}
-	return nil
+	return total, updatedAt, nil
 }
 
 func prendaForeignKeyError(err error) error {
