@@ -63,7 +63,10 @@ func (r *PrendaRepository) CreateMany(ctx context.Context, pedidoID int, reqs []
 		}
 		for _, servicioReq := range req.Servicios {
 			var relacion models.PrendaServicio
-			err := tx.QueryRow(ctx, `INSERT INTO prenda_servicios(prenda_id,servicio_id,precio_aplicado) SELECT $1,id,precio_base FROM servicios WHERE id=$2 AND activo=TRUE RETURNING id,prenda_id,servicio_id,precio_aplicado`, prenda.ID, servicioReq.ServicioID).Scan(&relacion.ID, &relacion.PrendaID, &relacion.ServicioID, &relacion.PrecioAplicado)
+			err := tx.QueryRow(ctx, `INSERT INTO prenda_servicios(prenda_id,servicio_id,precio_aplicado) SELECT $1,id,precio_base FROM servicios WHERE id=$2 AND activo=TRUE RETURNING id,prenda_id,servicio_id,precio_aplicado,created_at,updated_at`, prenda.ID, servicioReq.ServicioID).Scan(
+				&relacion.ID, &relacion.PrendaID, &relacion.ServicioID,
+				&relacion.PrecioAplicado, &relacion.CreatedAt, &relacion.UpdatedAt,
+			)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, ErrServicioNoEncontrado
 			}
