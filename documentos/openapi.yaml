@@ -295,6 +295,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "422":
           $ref: "#/components/responses/ErrorValidacion"
+        "409":
+          description: El cambio retrocede el estado, el pedido ya fue entregado/cancelado o se intentó cancelar mediante este endpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
           $ref: "#/components/responses/ErrorInterno"
 

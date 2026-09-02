@@ -362,6 +362,24 @@ func TestPedidoControllerActualizarEstadoReturnsNotFound(t *testing.T) {
 	}
 }
 
+func TestPedidoControllerActualizarEstadoReturnsConflictOnRetroceso(t *testing.T) {
+	controller := newPedidoControllerForTest(repository.ErrPedidoEstadoRetrocedido)
+	res := servePedidoActualizarEstado(controller, authenticatedPedidoEstadoRequest(t, `{"estado_id":1}`))
+
+	if res.Code != http.StatusConflict {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusConflict, res.Code, res.Body.String())
+	}
+}
+
+func TestPedidoControllerActualizarEstadoReturnsConflictWhenEntregado(t *testing.T) {
+	controller := newPedidoControllerForTest(repository.ErrPedidoEstadoFinalizado)
+	res := servePedidoActualizarEstado(controller, authenticatedPedidoEstadoRequest(t, `{"estado_id":4}`))
+
+	if res.Code != http.StatusConflict {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusConflict, res.Code, res.Body.String())
+	}
+}
+
 func TestPedidoControllerCrearReturnsCreated(t *testing.T) {
 	controller := newPedidoControllerForTest(nil)
 	req := authenticatedPedidoRequest(t, `{
