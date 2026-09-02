@@ -16,6 +16,10 @@ var (
 	ErrEstadoPedidoDestinoNoEncontrado   = errors.New("estado de pedido no encontrado")
 	ErrEstadoPedidoCanceladoNoEncontrado = errors.New("estado cancelado de pedido no encontrado")
 	ErrPedidoNoCancelable                = errors.New("el pedido no se puede cancelar en su estado actual")
+	ErrPedidoEstadoRetrocedido           = errors.New("no se permite retroceder el estado del pedido")
+	ErrPedidoEstadoFinalizado            = errors.New("el pedido ya fue entregado y no puede cambiar de estado")
+	ErrPedidoCancelado                   = errors.New("el pedido ya esta cancelado y no puede cambiar de estado")
+	ErrCambioEstadoCanceladoNoPermitido  = errors.New("el estado Cancelado solo puede establecerse mediante la cancelacion del pedido")
 )
 
 type PedidoRepository struct {
@@ -75,26 +79,34 @@ func (r *PedidoRepository) UpdateEstado(ctx context.Context, pedidoID int, req *
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var pedidoBloqueadoID int
+	var estadoActual models.EstadoPedido
 	if err := tx.QueryRow(ctx,
-		`SELECT id FROM pedidos WHERE id = $1 AND activo = TRUE FOR UPDATE`,
+		`SELECT e.id, e.nombre, e.orden
+		 FROM pedidos p
+		 JOIN estados_pedido e ON e.id = p.estado_actual_id
+		 WHERE p.id = $1 AND p.activo = TRUE
+		 FOR UPDATE OF p`,
 		pedidoID,
-	).Scan(&pedidoBloqueadoID); err != nil {
+	).Scan(&estadoActual.ID, &estadoActual.Nombre, &estadoActual.Orden); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrPedidoNoEncontrado
 		}
 		return nil, fmt.Errorf("error verificando pedido: %w", err)
 	}
 
-	var estadoBloqueadoID int
+	var estadoDestino models.EstadoPedido
 	if err := tx.QueryRow(ctx,
-		`SELECT id FROM estados_pedido WHERE id = $1 FOR KEY SHARE`,
+		`SELECT id, nombre, orden FROM estados_pedido WHERE id = $1 FOR KEY SHARE`,
 		req.EstadoID,
-	).Scan(&estadoBloqueadoID); err != nil {
+	).Scan(&estadoDestino.ID, &estadoDestino.Nombre, &estadoDestino.Orden); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrEstadoPedidoDestinoNoEncontrado
 		}
 		return nil, fmt.Errorf("error verificando estado de pedido: %w", err)
+	}
+
+	if err := validarTransicionEstadoPedido(estadoActual, estadoDestino); err != nil {
+		return nil, err
 	}
 
 	if _, err := tx.Exec(ctx,
@@ -128,6 +140,28 @@ func (r *PedidoRepository) UpdateEstado(ctx context.Context, pedidoID int, req *
 		return nil, fmt.Errorf("error confirmando cambio de estado: %w", err)
 	}
 	return &historial, nil
+}
+
+func validarTransicionEstadoPedido(actual, destino models.EstadoPedido) error {
+	switch {
+	case actual.Nombre == "Entregado":
+		return ErrPedidoEstadoFinalizado
+	case actual.Nombre == "Cancelado":
+		return ErrPedidoCancelado
+	case destino.Nombre == "Cancelado":
+		return ErrCambioEstadoCanceladoNoPermitido
+	case destino.Orden < actual.Orden:
+		return ErrPedidoEstadoRetrocedido
+	default:
+		return nil
+	}
+}
+
+func validarCancelacionPedido(estadoActualNombre string) error {
+	if estadoActualNombre != "Recibido" {
+		return ErrPedidoNoCancelable
+	}
+	return nil
 }
 
 func (r *PedidoRepository) GetHistorialEstados(ctx context.Context, pedidoID int) ([]models.PedidoEstadoHistorial, error) {
@@ -308,8 +342,8 @@ func (r *PedidoRepository) Cancelar(ctx context.Context, pedidoID, usuarioID int
 		return nil, fmt.Errorf("error verificando estado actual del pedido: %w", err)
 	}
 
-	if estadoActualNombre != "Recibido" {
-		return nil, ErrPedidoNoCancelable
+	if err := validarCancelacionPedido(estadoActualNombre); err != nil {
+		return nil, err
 	}
 
 	var estadoCanceladoID int

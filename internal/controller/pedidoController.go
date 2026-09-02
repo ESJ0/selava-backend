@@ -157,6 +157,14 @@ func (pc *PedidoController) handleServiceError(w http.ResponseWriter, err error)
 		respondError(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, repository.ErrPedidoNoCancelable):
 		respondError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, repository.ErrPedidoEstadoRetrocedido):
+		respondError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, repository.ErrPedidoEstadoFinalizado):
+		respondError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, repository.ErrPedidoCancelado):
+		respondError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, repository.ErrCambioEstadoCanceladoNoPermitido):
+		respondError(w, http.StatusConflict, err.Error())
 	case errors.Is(err, repository.ErrEstadoPedidoCanceladoNoEncontrado):
 		respondError(w, http.StatusInternalServerError, "estado cancelado de pedido no configurado")
 	case errors.Is(err, repository.ErrEstadoPedidoDestinoNoEncontrado):
