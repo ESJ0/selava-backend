@@ -15,6 +15,7 @@ type PedidoRepository interface {
 	Create(ctx context.Context, req *models.PedidoCreateRequest, usuarioID int) (*models.PedidoConPrendas, error)
 	UpdateEstado(ctx context.Context, pedidoID int, req *models.PedidoEstadoUpdateRequest, usuarioID int) (*models.PedidoEstadoHistorial, error)
 	GetHistorialEstados(ctx context.Context, pedidoID int) ([]models.PedidoEstadoHistorial, error)
+	GetDetalle(ctx context.Context, pedidoID int) (*models.PedidoDetalle, error)
 }
 
 type PedidoService struct {
@@ -64,4 +65,11 @@ func (s *PedidoService) ObtenerHistorialEstados(ctx context.Context, pedidoID in
 		return nil, repository.ErrPedidoNoEncontrado
 	}
 	return s.repo.GetHistorialEstados(ctx, pedidoID)
+}
+
+func (s *PedidoService) ObtenerDetallePedido(ctx context.Context, pedidoID int) (*models.PedidoDetalle, error) {
+	if pedidoID <= 0 {
+		return nil, repository.ErrPedidoNoEncontrado
+	}
+	return s.repo.GetDetalle(ctx, pedidoID)
 }

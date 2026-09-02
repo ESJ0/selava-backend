@@ -34,3 +34,21 @@ type PedidoConPrendas struct {
 	Pedido
 	Prendas []Prenda `json:"prendas"`
 }
+
+// EstadoPedido representa el estado del catalogo asociado a un pedido.
+type EstadoPedido struct {
+	ID        int       `json:"id"`
+	Nombre    string    `json:"nombre"`
+	Orden     int       `json:"orden"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// PedidoDetalle contiene toda la informacion relacionada con un pedido.
+type PedidoDetalle struct {
+	Pedido
+	Cliente      Cliente       `json:"cliente"`
+	Prendas      []Prenda      `json:"prendas"`
+	EstadoActual EstadoPedido  `json:"estado_actual"`
+	Pagos        []PagoDetalle `json:"pagos"`
+}

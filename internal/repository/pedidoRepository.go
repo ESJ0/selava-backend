@@ -171,6 +171,157 @@ func (r *PedidoRepository) GetHistorialEstados(ctx context.Context, pedidoID int
 	return historial, nil
 }
 
+func (r *PedidoRepository) GetDetalle(ctx context.Context, pedidoID int) (*models.PedidoDetalle, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error iniciando consulta de detalle del pedido: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	detalle := &models.PedidoDetalle{
+		Prendas: make([]models.Prenda, 0),
+		Pagos:   make([]models.PagoDetalle, 0),
+	}
+	const pedidoQuery = `
+		SELECT p.id, p.cliente_id, p.usuario_id, p.estado_actual_id,
+		       p.fecha_recibido, p.fecha_entrega_estimada, p.fecha_entrega_real,
+		       p.total, p.observaciones, p.activo, p.created_at, p.updated_at,
+		       c.id, c.nombre, c.apellido, c.telefono,
+		       COALESCE(c.email, ''), COALESCE(c.direccion, ''),
+		       c.activo, c.created_at, c.updated_at,
+		       e.id, e.nombre, e.orden, e.created_at, e.updated_at
+		FROM pedidos p
+		JOIN clientes c ON c.id = p.cliente_id
+		JOIN estados_pedido e ON e.id = p.estado_actual_id
+		WHERE p.id = $1 AND p.activo = TRUE`
+	if err := tx.QueryRow(ctx, pedidoQuery, pedidoID).Scan(
+		&detalle.ID, &detalle.ClienteID, &detalle.UsuarioID, &detalle.EstadoActualID,
+		&detalle.FechaRecibido, &detalle.FechaEntregaEstimada, &detalle.FechaEntregaReal,
+		&detalle.Total, &detalle.Observaciones, &detalle.Activo,
+		&detalle.CreatedAt, &detalle.UpdatedAt,
+		&detalle.Cliente.ID, &detalle.Cliente.Nombre, &detalle.Cliente.Apellido,
+		&detalle.Cliente.Telefono, &detalle.Cliente.Email, &detalle.Cliente.Direccion,
+		&detalle.Cliente.Activo, &detalle.Cliente.CreatedAt, &detalle.Cliente.UpdatedAt,
+		&detalle.EstadoActual.ID, &detalle.EstadoActual.Nombre, &detalle.EstadoActual.Orden,
+		&detalle.EstadoActual.CreatedAt, &detalle.EstadoActual.UpdatedAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrPedidoNoEncontrado
+		}
+		return nil, fmt.Errorf("error obteniendo detalle del pedido: %w", err)
+	}
+
+	const prendasQuery = `
+		SELECT p.id, p.pedido_id, p.tipo_prenda_id, p.descripcion,
+		       p.cantidad, p.color, p.created_at, p.updated_at,
+		       tp.id, tp.nombre, tp.descripcion, tp.activo,
+		       tp.created_at, tp.updated_at
+		FROM prendas p
+		JOIN tipos_prenda tp ON tp.id = p.tipo_prenda_id
+		WHERE p.pedido_id = $1
+		ORDER BY p.id`
+	rows, err := tx.Query(ctx, prendasQuery, pedidoID)
+	if err != nil {
+		return nil, fmt.Errorf("error consultando prendas del pedido: %w", err)
+	}
+	for rows.Next() {
+		prenda := models.Prenda{Servicios: make([]models.PrendaServicio, 0)}
+		tipoPrenda := &models.TipoPrenda{}
+		if err := rows.Scan(
+			&prenda.ID, &prenda.PedidoID, &prenda.TipoPrendaID, &prenda.Descripcion,
+			&prenda.Cantidad, &prenda.Color, &prenda.CreatedAt, &prenda.UpdatedAt,
+			&tipoPrenda.ID, &tipoPrenda.Nombre, &tipoPrenda.Descripcion,
+			&tipoPrenda.Activo, &tipoPrenda.CreatedAt, &tipoPrenda.UpdatedAt,
+		); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("error leyendo prendas del pedido: %w", err)
+		}
+		prenda.TipoPrenda = tipoPrenda
+		detalle.Prendas = append(detalle.Prendas, prenda)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, fmt.Errorf("error recorriendo prendas del pedido: %w", err)
+	}
+	rows.Close()
+	for i := range detalle.Prendas {
+		if err := r.loadServiciosDePrenda(ctx, tx, &detalle.Prendas[i]); err != nil {
+			return nil, err
+		}
+	}
+
+	const pagosQuery = `
+		SELECT p.id, p.pedido_id, p.metodo_pago_id, p.usuario_id,
+		       p.monto, p.referencia, p.fecha_pago, p.created_at,
+		       mp.id, mp.nombre, mp.activo
+		FROM pagos p
+		JOIN metodos_pago mp ON mp.id = p.metodo_pago_id
+		WHERE p.pedido_id = $1
+		ORDER BY p.fecha_pago ASC, p.id ASC`
+	rows, err = tx.Query(ctx, pagosQuery, pedidoID)
+	if err != nil {
+		return nil, fmt.Errorf("error consultando pagos del pedido: %w", err)
+	}
+	for rows.Next() {
+		pago := models.PagoDetalle{}
+		if err := rows.Scan(
+			&pago.ID, &pago.PedidoID, &pago.MetodoPagoID, &pago.UsuarioID,
+			&pago.Monto, &pago.Referencia, &pago.FechaPago, &pago.CreatedAt,
+			&pago.MetodoPago.ID, &pago.MetodoPago.Nombre, &pago.MetodoPago.Activo,
+		); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("error leyendo pagos del pedido: %w", err)
+		}
+		detalle.Pagos = append(detalle.Pagos, pago)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, fmt.Errorf("error recorriendo pagos del pedido: %w", err)
+	}
+	rows.Close()
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("error confirmando consulta de detalle del pedido: %w", err)
+	}
+	return detalle, nil
+}
+
+func (r *PedidoRepository) loadServiciosDePrenda(ctx context.Context, tx pgx.Tx, prenda *models.Prenda) error {
+	const query = `
+		SELECT ps.id, ps.prenda_id, ps.servicio_id, ps.precio_aplicado,
+		       ps.created_at, ps.updated_at,
+		       s.id, s.nombre, s.descripcion, s.precio_base,
+		       s.tiempo_estimado_horas, s.activo, s.created_at, s.updated_at
+		FROM prenda_servicios ps
+		JOIN servicios s ON s.id = ps.servicio_id
+		WHERE ps.prenda_id = $1
+		ORDER BY ps.id`
+	rows, err := tx.Query(ctx, query, prenda.ID)
+	if err != nil {
+		return fmt.Errorf("error consultando servicios de la prenda: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		servicioAplicado := models.PrendaServicio{Servicio: &models.Servicio{}}
+		if err := rows.Scan(
+			&servicioAplicado.ID, &servicioAplicado.PrendaID, &servicioAplicado.ServicioID,
+			&servicioAplicado.PrecioAplicado, &servicioAplicado.CreatedAt,
+			&servicioAplicado.UpdatedAt,
+			&servicioAplicado.Servicio.ID, &servicioAplicado.Servicio.Nombre,
+			&servicioAplicado.Servicio.Descripcion, &servicioAplicado.Servicio.PrecioBase,
+			&servicioAplicado.Servicio.TiempoEstimadoHoras, &servicioAplicado.Servicio.Activo,
+			&servicioAplicado.Servicio.CreatedAt, &servicioAplicado.Servicio.UpdatedAt,
+		); err != nil {
+			return fmt.Errorf("error leyendo servicios de la prenda: %w", err)
+		}
+		prenda.Servicios = append(prenda.Servicios, servicioAplicado)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error recorriendo servicios de la prenda: %w", err)
+	}
+	return nil
+}
+
 func (r *PedidoRepository) insertPedido(ctx context.Context, tx pgx.Tx, req *models.PedidoCreateRequest, usuarioID int) (*models.Pedido, error) {
 	const query = `
 		INSERT INTO pedidos (

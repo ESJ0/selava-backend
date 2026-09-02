@@ -96,6 +96,24 @@ func (pc *PedidoController) ObtenerHistorialEstados(w http.ResponseWriter, r *ht
 	respondJSON(w, http.StatusOK, historial)
 }
 
+func (pc *PedidoController) ObtenerDetalle(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+
+	pedidoID, err := strconv.Atoi(chi.URLParam(r, "pedidoID"))
+	if err != nil || pedidoID <= 0 {
+		respondError(w, http.StatusBadRequest, "id de pedido invalido")
+		return
+	}
+
+	detalle, err := pc.service.ObtenerDetallePedido(ctx, pedidoID)
+	if err != nil {
+		pc.handleServiceError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, detalle)
+}
+
 func (pc *PedidoController) handleServiceError(w http.ResponseWriter, err error) {
 	var validationErrors validator.ValidationErrors
 	if errors.As(err, &validationErrors) {
