@@ -114,6 +114,29 @@ func (pc *PedidoController) ObtenerDetalle(w http.ResponseWriter, r *http.Reques
 	respondJSON(w, http.StatusOK, detalle)
 }
 
+func (pc *PedidoController) Cancelar(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+
+	pedidoID, err := strconv.Atoi(chi.URLParam(r, "pedidoID"))
+	if err != nil || pedidoID <= 0 {
+		respondError(w, http.StatusBadRequest, "id de pedido invalido")
+		return
+	}
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok || claims.UsuarioID <= 0 {
+		respondError(w, http.StatusUnauthorized, "token de autenticacion requerido")
+		return
+	}
+
+	pedido, err := pc.service.CancelarPedido(ctx, pedidoID, claims.UsuarioID)
+	if err != nil {
+		pc.handleServiceError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, pedido)
+}
+
 func (pc *PedidoController) handleServiceError(w http.ResponseWriter, err error) {
 	var validationErrors validator.ValidationErrors
 	if errors.As(err, &validationErrors) {
@@ -132,6 +155,10 @@ func (pc *PedidoController) handleServiceError(w http.ResponseWriter, err error)
 		respondError(w, http.StatusNotFound, "servicio no encontrado o inactivo")
 	case errors.Is(err, repository.ErrPedidoNoEncontrado):
 		respondError(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, repository.ErrPedidoNoCancelable):
+		respondError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, repository.ErrEstadoPedidoCanceladoNoEncontrado):
+		respondError(w, http.StatusInternalServerError, "estado cancelado de pedido no configurado")
 	case errors.Is(err, repository.ErrEstadoPedidoDestinoNoEncontrado):
 		respondError(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, repository.ErrEstadoPedidoNoEncontrado):

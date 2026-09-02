@@ -12,8 +12,10 @@ import (
 )
 
 var (
-	ErrEstadoPedidoNoEncontrado        = errors.New("estado inicial de pedido no encontrado")
-	ErrEstadoPedidoDestinoNoEncontrado = errors.New("estado de pedido no encontrado")
+	ErrEstadoPedidoNoEncontrado          = errors.New("estado inicial de pedido no encontrado")
+	ErrEstadoPedidoDestinoNoEncontrado   = errors.New("estado de pedido no encontrado")
+	ErrEstadoPedidoCanceladoNoEncontrado = errors.New("estado cancelado de pedido no encontrado")
+	ErrPedidoNoCancelable                = errors.New("el pedido no se puede cancelar en su estado actual")
 )
 
 type PedidoRepository struct {
@@ -284,6 +286,73 @@ func (r *PedidoRepository) GetDetalle(ctx context.Context, pedidoID int) (*model
 		return nil, fmt.Errorf("error confirmando consulta de detalle del pedido: %w", err)
 	}
 	return detalle, nil
+}
+
+func (r *PedidoRepository) Cancelar(ctx context.Context, pedidoID, usuarioID int) (*models.Pedido, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error iniciando cancelacion del pedido: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var estadoActualNombre string
+	if err := tx.QueryRow(ctx, `
+		SELECT e.nombre
+		FROM pedidos p
+		JOIN estados_pedido e ON e.id = p.estado_actual_id
+		WHERE p.id = $1 AND p.activo = TRUE
+		FOR UPDATE OF p`, pedidoID).Scan(&estadoActualNombre); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrPedidoNoEncontrado
+		}
+		return nil, fmt.Errorf("error verificando estado actual del pedido: %w", err)
+	}
+
+	if estadoActualNombre != "Recibido" {
+		return nil, ErrPedidoNoCancelable
+	}
+
+	var estadoCanceladoID int
+	if err := tx.QueryRow(ctx,
+		`SELECT id FROM estados_pedido WHERE nombre = 'Cancelado' FOR KEY SHARE`,
+	).Scan(&estadoCanceladoID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrEstadoPedidoCanceladoNoEncontrado
+		}
+		return nil, fmt.Errorf("error verificando estado cancelado del pedido: %w", err)
+	}
+
+	var pedido models.Pedido
+	if err := tx.QueryRow(ctx, `
+		UPDATE pedidos
+		SET estado_actual_id = $1, updated_at = NOW()
+		WHERE id = $2
+		RETURNING id, cliente_id, usuario_id, estado_actual_id,
+		          fecha_recibido, fecha_entrega_estimada, fecha_entrega_real,
+		          total, observaciones, activo, created_at, updated_at`,
+		estadoCanceladoID, pedidoID).Scan(
+		&pedido.ID, &pedido.ClienteID, &pedido.UsuarioID, &pedido.EstadoActualID,
+		&pedido.FechaRecibido, &pedido.FechaEntregaEstimada, &pedido.FechaEntregaReal,
+		&pedido.Total, &pedido.Observaciones, &pedido.Activo,
+		&pedido.CreatedAt, &pedido.UpdatedAt,
+	); err != nil {
+		return nil, fmt.Errorf("error actualizando pedido cancelado: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO pedido_estados_historial (pedido_id, estado_id, usuario_id, observaciones)
+		VALUES ($1, $2, $3, $4)`,
+		pedidoID, estadoCanceladoID, usuarioID, "Pedido cancelado"); err != nil {
+		if mappedErr := pedidoEstadoHistorialForeignKeyError(err); mappedErr != nil {
+			return nil, mappedErr
+		}
+		return nil, fmt.Errorf("error registrando cancelacion en el historial: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("error confirmando cancelacion del pedido: %w", err)
+	}
+	return &pedido, nil
 }
 
 func (r *PedidoRepository) loadServiciosDePrenda(ctx context.Context, tx pgx.Tx, prenda *models.Prenda) error {
