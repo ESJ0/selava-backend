@@ -82,6 +82,13 @@ func (r *fakePedidoRepo) UpdateEstado(_ context.Context, pedidoID int, req *mode
 	}, nil
 }
 
+func (r *fakePedidoRepo) GetHistorialEstados(_ context.Context, pedidoID int) ([]models.PedidoEstadoHistorial, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return []models.PedidoEstadoHistorial{{PedidoID: pedidoID, EstadoID: 1}}, nil
+}
+
 func validPedidoRequest() *models.PedidoCreateRequest {
 	return &models.PedidoCreateRequest{
 		ClienteID: 1,
@@ -149,6 +156,27 @@ func TestPedidoServiceActualizarEstadoRechazaEstadoInvalido(t *testing.T) {
 	}
 	if !hasFieldError(validationErrors, "estado_id") {
 		t.Fatalf("expected error on estado_id, got %+v", validationErrors)
+	}
+}
+
+func TestPedidoServiceObtenerHistorialEstadosPersisteConsulta(t *testing.T) {
+	service := NewPedidoService(newFakePedidoRepo())
+
+	historial, err := service.ObtenerHistorialEstados(context.Background(), 4)
+	if err != nil {
+		t.Fatalf("ObtenerHistorialEstados returned error: %v", err)
+	}
+	if len(historial) != 1 || historial[0].PedidoID != 4 {
+		t.Fatalf("unexpected historial: %+v", historial)
+	}
+}
+
+func TestPedidoServiceObtenerHistorialEstadosRechazaIDInvalido(t *testing.T) {
+	service := NewPedidoService(newFakePedidoRepo())
+
+	_, err := service.ObtenerHistorialEstados(context.Background(), 0)
+	if !errors.Is(err, repository.ErrPedidoNoEncontrado) {
+		t.Fatalf("expected ErrPedidoNoEncontrado, got %v", err)
 	}
 }
 
