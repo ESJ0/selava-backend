@@ -16,6 +16,7 @@ type PedidoRepository interface {
 	UpdateEstado(ctx context.Context, pedidoID int, req *models.PedidoEstadoUpdateRequest, usuarioID int) (*models.PedidoEstadoHistorial, error)
 	GetHistorialEstados(ctx context.Context, pedidoID int) ([]models.PedidoEstadoHistorial, error)
 	GetDetalle(ctx context.Context, pedidoID int) (*models.PedidoDetalle, error)
+	Cancelar(ctx context.Context, pedidoID int, usuarioID int) (*models.Pedido, error)
 }
 
 type PedidoService struct {
@@ -72,4 +73,14 @@ func (s *PedidoService) ObtenerDetallePedido(ctx context.Context, pedidoID int) 
 		return nil, repository.ErrPedidoNoEncontrado
 	}
 	return s.repo.GetDetalle(ctx, pedidoID)
+}
+
+func (s *PedidoService) CancelarPedido(ctx context.Context, pedidoID, usuarioID int) (*models.Pedido, error) {
+	if pedidoID <= 0 {
+		return nil, repository.ErrPedidoNoEncontrado
+	}
+	if usuarioID <= 0 {
+		return nil, repository.ErrUsuarioNoEncontrado
+	}
+	return s.repo.Cancelar(ctx, pedidoID, usuarioID)
 }

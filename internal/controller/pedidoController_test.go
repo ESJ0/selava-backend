@@ -103,6 +103,13 @@ func (r *fakePedidoRepository) GetDetalle(_ context.Context, pedidoID int) (*mod
 	}, nil
 }
 
+func (r *fakePedidoRepository) Cancelar(_ context.Context, pedidoID, usuarioID int) (*models.Pedido, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return &models.Pedido{ID: pedidoID, UsuarioID: usuarioID, EstadoActualID: 2, Activo: true}, nil
+}
+
 // authenticatedRequest arma un POST /api/pedidos con un JWT valido, para
 // pasar por el mismo camino que usa el middleware real en produccion en
 // vez de forjar el contexto directamente (claimsContextKey es privado).
@@ -182,6 +189,63 @@ func servePedidoDetalle(controller *PedidoController, req *http.Request) *httpte
 	res := httptest.NewRecorder()
 	router.ServeHTTP(res, req)
 	return res
+}
+
+func authenticatedPedidoCancelarRequest(t *testing.T) *http.Request {
+	t.Helper()
+	token, err := auth.GenerateToken(pedidoTestSecret, 7, middleware.RolRecepcionista)
+	if err != nil {
+		t.Fatalf("generating token: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPut, "/api/pedidos/3/cancelar", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	return req
+}
+
+func servePedidoCancelar(controller *PedidoController, req *http.Request) *httptest.ResponseRecorder {
+	mw := middleware.NewAuthMiddleware(pedidoTestSecret)
+	router := chi.NewRouter()
+	router.With(mw.Authenticate).Put("/api/pedidos/{pedidoID}/cancelar", controller.Cancelar)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	return res
+}
+
+func TestPedidoControllerCancelarReturnsOK(t *testing.T) {
+	controller := newPedidoControllerForTest(nil)
+	res := servePedidoCancelar(controller, authenticatedPedidoCancelarRequest(t))
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, res.Code, res.Body.String())
+	}
+	var body models.Pedido
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatalf("decoding response: %v", err)
+	}
+	if body.ID != 3 || body.UsuarioID != 7 || body.EstadoActualID != 2 || !body.Activo {
+		t.Fatalf("unexpected pedido cancelado: %+v", body)
+	}
+}
+
+func TestPedidoControllerCancelarRejectsInvalidID(t *testing.T) {
+	controller := newPedidoControllerForTest(nil)
+	req := authenticatedPedidoCancelarRequest(t)
+	req.URL.Path = "/api/pedidos/no-valido/cancelar"
+
+	res := servePedidoCancelar(controller, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, res.Code, res.Body.String())
+	}
+}
+
+func TestPedidoControllerCancelarReturnsConflictWhenNotCancelable(t *testing.T) {
+	controller := newPedidoControllerForTest(repository.ErrPedidoNoCancelable)
+	res := servePedidoCancelar(controller, authenticatedPedidoCancelarRequest(t))
+
+	if res.Code != http.StatusConflict {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusConflict, res.Code, res.Body.String())
+	}
 }
 
 func TestPedidoControllerObtenerDetalleReturnsOK(t *testing.T) {

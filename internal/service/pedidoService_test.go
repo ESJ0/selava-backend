@@ -102,6 +102,13 @@ func (r *fakePedidoRepo) GetDetalle(_ context.Context, pedidoID int) (*models.Pe
 	}, nil
 }
 
+func (r *fakePedidoRepo) Cancelar(_ context.Context, pedidoID, usuarioID int) (*models.Pedido, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return &models.Pedido{ID: pedidoID, UsuarioID: usuarioID, EstadoActualID: 2, Activo: true}, nil
+}
+
 func validPedidoRequest() *models.PedidoCreateRequest {
 	return &models.PedidoCreateRequest{
 		ClienteID: 1,
@@ -209,6 +216,27 @@ func TestPedidoServiceObtenerDetallePedidoRechazaIDInvalido(t *testing.T) {
 	service := NewPedidoService(newFakePedidoRepo())
 
 	_, err := service.ObtenerDetallePedido(context.Background(), 0)
+	if !errors.Is(err, repository.ErrPedidoNoEncontrado) {
+		t.Fatalf("expected ErrPedidoNoEncontrado, got %v", err)
+	}
+}
+
+func TestPedidoServiceCancelarPedidoPersisteCancelacion(t *testing.T) {
+	service := NewPedidoService(newFakePedidoRepo())
+
+	pedido, err := service.CancelarPedido(context.Background(), 4, 7)
+	if err != nil {
+		t.Fatalf("CancelarPedido returned error: %v", err)
+	}
+	if pedido.ID != 4 || pedido.UsuarioID != 7 || pedido.EstadoActualID != 2 {
+		t.Fatalf("unexpected pedido cancelado: %+v", pedido)
+	}
+}
+
+func TestPedidoServiceCancelarPedidoRechazaIDInvalido(t *testing.T) {
+	service := NewPedidoService(newFakePedidoRepo())
+
+	_, err := service.CancelarPedido(context.Background(), 0, 7)
 	if !errors.Is(err, repository.ErrPedidoNoEncontrado) {
 		t.Fatalf("expected ErrPedidoNoEncontrado, got %v", err)
 	}
