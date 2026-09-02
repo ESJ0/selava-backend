@@ -89,6 +89,19 @@ func (r *fakePedidoRepo) GetHistorialEstados(_ context.Context, pedidoID int) ([
 	return []models.PedidoEstadoHistorial{{PedidoID: pedidoID, EstadoID: 1}}, nil
 }
 
+func (r *fakePedidoRepo) GetDetalle(_ context.Context, pedidoID int) (*models.PedidoDetalle, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return &models.PedidoDetalle{
+		Pedido:       models.Pedido{ID: pedidoID},
+		Cliente:      models.Cliente{ID: 1, Nombre: "Maria"},
+		Prendas:      []models.Prenda{{ID: 2, PedidoID: pedidoID}},
+		EstadoActual: models.EstadoPedido{ID: 1, Nombre: "Recibido"},
+		Pagos:        []models.PagoDetalle{{Pago: models.Pago{ID: 3, PedidoID: pedidoID, Monto: 25}}},
+	}, nil
+}
+
 func validPedidoRequest() *models.PedidoCreateRequest {
 	return &models.PedidoCreateRequest{
 		ClienteID: 1,
@@ -175,6 +188,27 @@ func TestPedidoServiceObtenerHistorialEstadosRechazaIDInvalido(t *testing.T) {
 	service := NewPedidoService(newFakePedidoRepo())
 
 	_, err := service.ObtenerHistorialEstados(context.Background(), 0)
+	if !errors.Is(err, repository.ErrPedidoNoEncontrado) {
+		t.Fatalf("expected ErrPedidoNoEncontrado, got %v", err)
+	}
+}
+
+func TestPedidoServiceObtenerDetallePedidoPersisteConsulta(t *testing.T) {
+	service := NewPedidoService(newFakePedidoRepo())
+
+	detalle, err := service.ObtenerDetallePedido(context.Background(), 4)
+	if err != nil {
+		t.Fatalf("ObtenerDetallePedido returned error: %v", err)
+	}
+	if detalle.ID != 4 || detalle.Cliente.ID != 1 || len(detalle.Prendas) != 1 || len(detalle.Pagos) != 1 {
+		t.Fatalf("unexpected detalle: %+v", detalle)
+	}
+}
+
+func TestPedidoServiceObtenerDetallePedidoRechazaIDInvalido(t *testing.T) {
+	service := NewPedidoService(newFakePedidoRepo())
+
+	_, err := service.ObtenerDetallePedido(context.Background(), 0)
 	if !errors.Is(err, repository.ErrPedidoNoEncontrado) {
 		t.Fatalf("expected ErrPedidoNoEncontrado, got %v", err)
 	}

@@ -131,6 +131,42 @@ paths:
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
+  /api/pedidos/{pedidoID}:
+    get:
+      tags: [Pedidos]
+      summary: Consulta el detalle completo de un pedido
+      description: Devuelve el pedido junto con su cliente, prendas, servicios asociados, estado actual y pagos.
+      parameters:
+        - name: pedidoID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Detalle completo del pedido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PedidoDetalle"
+        "400":
+          description: ID de pedido inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "404":
+          description: El pedido no existe o está inactivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
   /api/pedidos/{pedidoID}/historial-estados:
     get:
       tags: [Pedidos]
@@ -952,6 +988,42 @@ components:
           type: string
           format: date-time
 
+    PedidoDetalle:
+      description: Pedido con todas sus relaciones de cliente, prendas, estado actual y pagos.
+      allOf:
+        - $ref: "#/components/schemas/Pedido"
+        - type: object
+          required: [cliente, prendas, estado_actual, pagos]
+          properties:
+            cliente:
+              $ref: "#/components/schemas/Cliente"
+            prendas:
+              type: array
+              items:
+                $ref: "#/components/schemas/Prenda"
+            estado_actual:
+              $ref: "#/components/schemas/EstadoPedido"
+            pagos:
+              type: array
+              items:
+                $ref: "#/components/schemas/PagoDetalle"
+
+    EstadoPedido:
+      type: object
+      properties:
+        id:
+          type: integer
+        nombre:
+          type: string
+        orden:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
     PedidoCreateRequest:
       type: object
       required: [cliente_id, prendas]
@@ -1049,6 +1121,8 @@ components:
         tipo_prenda_id:
           type: integer
           example: 2
+        tipo_prenda:
+          $ref: "#/components/schemas/TipoPrenda"
         descripcion:
           type: string
           nullable: true
@@ -1080,6 +1154,8 @@ components:
           type: integer
         servicio_id:
           type: integer
+        servicio:
+          $ref: "#/components/schemas/Servicio"
         precio_aplicado:
           type: number
           format: double
@@ -1261,6 +1337,41 @@ components:
           maxLength: 50
         activo:
           type: boolean
+
+    Pago:
+      type: object
+      properties:
+        id:
+          type: integer
+        pedido_id:
+          type: integer
+        metodo_pago_id:
+          type: integer
+        usuario_id:
+          type: integer
+        monto:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+        referencia:
+          type: string
+          nullable: true
+        fecha_pago:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    PagoDetalle:
+      description: Pago registrado junto con el metodo de pago utilizado.
+      allOf:
+        - $ref: "#/components/schemas/Pago"
+        - type: object
+          properties:
+            metodo_pago:
+              $ref: "#/components/schemas/MetodoPago"
 
     Cliente:
       type: object
