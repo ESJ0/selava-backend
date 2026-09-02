@@ -79,6 +79,17 @@ func (r *fakePedidoRepository) UpdateEstado(_ context.Context, pedidoID int, req
 	}, nil
 }
 
+func (r *fakePedidoRepository) GetHistorialEstados(_ context.Context, pedidoID int) ([]models.PedidoEstadoHistorial, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	now := time.Now()
+	return []models.PedidoEstadoHistorial{
+		{ID: 1, PedidoID: pedidoID, EstadoID: 1, UsuarioID: 7, FechaCambio: now.Add(-time.Hour), CreatedAt: now.Add(-time.Hour)},
+		{ID: 2, PedidoID: pedidoID, EstadoID: 2, UsuarioID: 8, FechaCambio: now, CreatedAt: now},
+	}, nil
+}
+
 // authenticatedRequest arma un POST /api/pedidos con un JWT valido, para
 // pasar por el mismo camino que usa el middleware real en produccion en
 // vez de forjar el contexto directamente (claimsContextKey es privado).
@@ -118,6 +129,63 @@ func servePedidoActualizarEstado(controller *PedidoController, req *http.Request
 	res := httptest.NewRecorder()
 	router.ServeHTTP(res, req)
 	return res
+}
+
+func authenticatedPedidoHistorialRequest(t *testing.T) *http.Request {
+	t.Helper()
+	token, err := auth.GenerateToken(pedidoTestSecret, 7, middleware.RolRecepcionista)
+	if err != nil {
+		t.Fatalf("generating token: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/pedidos/3/historial-estados", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	return req
+}
+
+func servePedidoHistorial(controller *PedidoController, req *http.Request) *httptest.ResponseRecorder {
+	mw := middleware.NewAuthMiddleware(pedidoTestSecret)
+	router := chi.NewRouter()
+	router.With(mw.Authenticate).Get("/api/pedidos/{pedidoID}/historial-estados", controller.ObtenerHistorialEstados)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	return res
+}
+
+func TestPedidoControllerObtenerHistorialEstadosReturnsOK(t *testing.T) {
+	controller := newPedidoControllerForTest(nil)
+	res := servePedidoHistorial(controller, authenticatedPedidoHistorialRequest(t))
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, res.Code, res.Body.String())
+	}
+	var body []models.PedidoEstadoHistorial
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatalf("decoding response: %v", err)
+	}
+	if len(body) != 2 || body[0].ID != 1 || body[1].ID != 2 {
+		t.Fatalf("unexpected historial: %+v", body)
+	}
+}
+
+func TestPedidoControllerObtenerHistorialEstadosRejectsInvalidID(t *testing.T) {
+	controller := newPedidoControllerForTest(nil)
+	req := authenticatedPedidoHistorialRequest(t)
+	req.URL.Path = "/api/pedidos/no-valido/historial-estados"
+
+	res := servePedidoHistorial(controller, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, res.Code, res.Body.String())
+	}
+}
+
+func TestPedidoControllerObtenerHistorialEstadosReturnsNotFound(t *testing.T) {
+	controller := newPedidoControllerForTest(repository.ErrPedidoNoEncontrado)
+	res := servePedidoHistorial(controller, authenticatedPedidoHistorialRequest(t))
+
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, res.Code, res.Body.String())
+	}
 }
 
 func TestPedidoControllerActualizarEstadoReturnsOK(t *testing.T) {

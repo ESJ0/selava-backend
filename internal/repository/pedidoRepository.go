@@ -128,6 +128,49 @@ func (r *PedidoRepository) UpdateEstado(ctx context.Context, pedidoID int, req *
 	return &historial, nil
 }
 
+func (r *PedidoRepository) GetHistorialEstados(ctx context.Context, pedidoID int) ([]models.PedidoEstadoHistorial, error) {
+	var pedidoExiste bool
+	if err := r.db.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM pedidos WHERE id = $1 AND activo = TRUE)`,
+		pedidoID,
+	).Scan(&pedidoExiste); err != nil {
+		return nil, fmt.Errorf("error verificando pedido para consultar historial: %w", err)
+	}
+	if !pedidoExiste {
+		return nil, ErrPedidoNoEncontrado
+	}
+
+	const query = `
+		SELECT id, pedido_id, estado_id, usuario_id,
+		       fecha_cambio, observaciones, created_at
+		FROM pedido_estados_historial
+		WHERE pedido_id = $1
+		ORDER BY fecha_cambio ASC, id ASC`
+	rows, err := r.db.Query(ctx, query, pedidoID)
+	if err != nil {
+		return nil, fmt.Errorf("error consultando historial del pedido: %w", err)
+	}
+	defer rows.Close()
+
+	historial := make([]models.PedidoEstadoHistorial, 0)
+	for rows.Next() {
+		var movimiento models.PedidoEstadoHistorial
+		if err := rows.Scan(
+			&movimiento.ID, &movimiento.PedidoID, &movimiento.EstadoID,
+			&movimiento.UsuarioID, &movimiento.FechaCambio,
+			&movimiento.Observaciones, &movimiento.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("error leyendo historial del pedido: %w", err)
+		}
+		historial = append(historial, movimiento)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error recorriendo historial del pedido: %w", err)
+	}
+
+	return historial, nil
+}
+
 func (r *PedidoRepository) insertPedido(ctx context.Context, tx pgx.Tx, req *models.PedidoCreateRequest, usuarioID int) (*models.Pedido, error) {
 	const query = `
 		INSERT INTO pedidos (
