@@ -164,7 +164,7 @@ func validarCancelacionPedido(estadoActualNombre string) error {
 	return nil
 }
 
-func (r *PedidoRepository) GetHistorialEstados(ctx context.Context, pedidoID int) ([]models.PedidoEstadoHistorial, error) {
+func (r *PedidoRepository) GetHistorialEstados(ctx context.Context, pedidoID int) ([]models.PedidoEstadoHistorialDetalle, error) {
 	var pedidoExiste bool
 	if err := r.db.QueryRow(ctx,
 		`SELECT EXISTS(SELECT 1 FROM pedidos WHERE id = $1 AND activo = TRUE)`,
@@ -177,24 +177,31 @@ func (r *PedidoRepository) GetHistorialEstados(ctx context.Context, pedidoID int
 	}
 
 	const query = `
-		SELECT id, pedido_id, estado_id, usuario_id,
-		       fecha_cambio, observaciones, created_at
-		FROM pedido_estados_historial
-		WHERE pedido_id = $1
-		ORDER BY fecha_cambio ASC, id ASC`
+		SELECT h.id, h.pedido_id, h.estado_id, h.usuario_id,
+		       h.fecha_cambio, h.observaciones, h.created_at,
+		       e.id, e.nombre, e.orden, e.created_at, e.updated_at,
+		       u.id, u.nombre, u.apellido
+		FROM pedido_estados_historial h
+		JOIN estados_pedido e ON e.id = h.estado_id
+		JOIN usuarios u ON u.id = h.usuario_id
+		WHERE h.pedido_id = $1
+		ORDER BY h.fecha_cambio ASC, h.id ASC`
 	rows, err := r.db.Query(ctx, query, pedidoID)
 	if err != nil {
 		return nil, fmt.Errorf("error consultando historial del pedido: %w", err)
 	}
 	defer rows.Close()
 
-	historial := make([]models.PedidoEstadoHistorial, 0)
+	historial := make([]models.PedidoEstadoHistorialDetalle, 0)
 	for rows.Next() {
-		var movimiento models.PedidoEstadoHistorial
+		var movimiento models.PedidoEstadoHistorialDetalle
 		if err := rows.Scan(
 			&movimiento.ID, &movimiento.PedidoID, &movimiento.EstadoID,
 			&movimiento.UsuarioID, &movimiento.FechaCambio,
 			&movimiento.Observaciones, &movimiento.CreatedAt,
+			&movimiento.Estado.ID, &movimiento.Estado.Nombre, &movimiento.Estado.Orden,
+			&movimiento.Estado.CreatedAt, &movimiento.Estado.UpdatedAt,
+			&movimiento.Usuario.ID, &movimiento.Usuario.Nombre, &movimiento.Usuario.Apellido,
 		); err != nil {
 			return nil, fmt.Errorf("error leyendo historial del pedido: %w", err)
 		}

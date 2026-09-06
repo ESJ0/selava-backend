@@ -10,7 +10,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, prendaController *controller.PrendaController, authController *controller.AuthController, jwtSecret, allowedOrigins string) *chi.Mux {
+func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, prendaController *controller.PrendaController, estadoPedidoController *controller.EstadoPedidoController, authController *controller.AuthController, jwtSecret, allowedOrigins string) *chi.Mux {
 	r := chi.NewRouter()
 	authMW := authmiddleware.NewAuthMiddleware(jwtSecret)
 
@@ -86,6 +86,14 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 
 		r.Post("/{prendaID}/servicios", prendaController.AsociarServicio)
 		r.Delete("/{prendaID}/servicios/{servicioID}", prendaController.QuitarServicio)
+	})
+
+	r.Route("/api/estados-pedido", func(r chi.Router) {
+		r.Use(authMW.Authenticate)
+		// Sin restriccion de rol adicional: los 3 roles necesitan leer este
+		// catalogo (Operario para el selector de cambio de estado, todos
+		// para mostrar nombres en el detalle y el historial del pedido).
+		r.Get("/", estadoPedidoController.Listar)
 	})
 
 	return r

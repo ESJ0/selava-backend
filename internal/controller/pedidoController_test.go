@@ -79,14 +79,22 @@ func (r *fakePedidoRepository) UpdateEstado(_ context.Context, pedidoID int, req
 	}, nil
 }
 
-func (r *fakePedidoRepository) GetHistorialEstados(_ context.Context, pedidoID int) ([]models.PedidoEstadoHistorial, error) {
+func (r *fakePedidoRepository) GetHistorialEstados(_ context.Context, pedidoID int) ([]models.PedidoEstadoHistorialDetalle, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
 	now := time.Now()
-	return []models.PedidoEstadoHistorial{
-		{ID: 1, PedidoID: pedidoID, EstadoID: 1, UsuarioID: 7, FechaCambio: now.Add(-time.Hour), CreatedAt: now.Add(-time.Hour)},
-		{ID: 2, PedidoID: pedidoID, EstadoID: 2, UsuarioID: 8, FechaCambio: now, CreatedAt: now},
+	return []models.PedidoEstadoHistorialDetalle{
+		{
+			PedidoEstadoHistorial: models.PedidoEstadoHistorial{ID: 1, PedidoID: pedidoID, EstadoID: 1, UsuarioID: 7, FechaCambio: now.Add(-time.Hour), CreatedAt: now.Add(-time.Hour)},
+			Estado:                models.EstadoPedido{ID: 1, Nombre: "Recibido"},
+			Usuario:               models.UsuarioResumen{ID: 7, Nombre: "Ana", Apellido: "Martinez"},
+		},
+		{
+			PedidoEstadoHistorial: models.PedidoEstadoHistorial{ID: 2, PedidoID: pedidoID, EstadoID: 2, UsuarioID: 8, FechaCambio: now, CreatedAt: now},
+			Estado:                models.EstadoPedido{ID: 2, Nombre: "Rackeado"},
+			Usuario:               models.UsuarioResumen{ID: 8, Nombre: "Luis", Apellido: "Gomez"},
+		},
 	}, nil
 }
 
@@ -292,12 +300,18 @@ func TestPedidoControllerObtenerHistorialEstadosReturnsOK(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, res.Code, res.Body.String())
 	}
-	var body []models.PedidoEstadoHistorial
+	var body []models.PedidoEstadoHistorialDetalle
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatalf("decoding response: %v", err)
 	}
 	if len(body) != 2 || body[0].ID != 1 || body[1].ID != 2 {
 		t.Fatalf("unexpected historial: %+v", body)
+	}
+	if body[0].Estado.Nombre != "Recibido" || body[0].Usuario.Nombre != "Ana" {
+		t.Fatalf("expected estado/usuario resueltos, got %+v", body[0])
+	}
+	if body[1].Estado.Nombre != "Rackeado" || body[1].Usuario.Nombre != "Luis" {
+		t.Fatalf("expected estado/usuario resueltos, got %+v", body[1])
 	}
 }
 
