@@ -103,3 +103,20 @@ func TestPrendaControllerQuitarServicioReturnsNotFound(t *testing.T) {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, res.Code, res.Body.String())
 	}
 }
+
+func TestPrendaControllerServiciosDePedidoEntregado(t *testing.T) {
+	controller := newPrendaControllerForTest(&fakePrendaControllerRepo{
+		addErr:    repository.ErrPedidoEstadoFinalizado,
+		removeErr: repository.ErrPedidoEstadoFinalizado,
+	})
+	for _, method := range []string{http.MethodPost, http.MethodDelete} {
+		path := "/api/prendas/2/servicios"
+		if method == http.MethodDelete {
+			path += "/3"
+		}
+		res := servePrendaServicio(controller, method, path, `{"servicio_id":3}`)
+		if res.Code != http.StatusConflict || !strings.Contains(res.Body.String(), "no puede modificarse") {
+			t.Fatalf("%s: expected a human-readable conflict, got %d: %s", method, res.Code, res.Body.String())
+		}
+	}
+}
