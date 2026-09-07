@@ -82,11 +82,15 @@ func (r *fakePedidoRepo) UpdateEstado(_ context.Context, pedidoID int, req *mode
 	}, nil
 }
 
-func (r *fakePedidoRepo) GetHistorialEstados(_ context.Context, pedidoID int) ([]models.PedidoEstadoHistorial, error) {
+func (r *fakePedidoRepo) GetHistorialEstados(_ context.Context, pedidoID int) ([]models.PedidoEstadoHistorialDetalle, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
-	return []models.PedidoEstadoHistorial{{PedidoID: pedidoID, EstadoID: 1}}, nil
+	return []models.PedidoEstadoHistorialDetalle{{
+		PedidoEstadoHistorial: models.PedidoEstadoHistorial{PedidoID: pedidoID, EstadoID: 1},
+		Estado:                models.EstadoPedido{ID: 1, Nombre: "Recibido"},
+		Usuario:               models.UsuarioResumen{ID: 7, Nombre: "Ana", Apellido: "Martinez"},
+	}}, nil
 }
 
 func (r *fakePedidoRepo) GetDetalle(_ context.Context, pedidoID int) (*models.PedidoDetalle, error) {
