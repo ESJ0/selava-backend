@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ESJ0/selava-backend/internal/models"
+	"github.com/ESJ0/selava-backend/internal/repository"
 	"github.com/ESJ0/selava-backend/internal/validator"
 )
 
@@ -76,4 +77,23 @@ func TestPrendaServiceQuitarServicio(t *testing.T) {
 	if repo.removeCalls != 1 || repo.lastPrendaID != 7 || repo.lastServicio != 9 {
 		t.Fatalf("unexpected repository call: %+v", repo)
 	}
+}
+
+func TestPrendaServicePropagaRechazosDeAsociacion(t *testing.T) {
+	for _, want := range []error{repository.ErrPrendaNoEncontrada, repository.ErrServicioNoEncontrado, repository.ErrPrendaServicioYaAsociado, repository.ErrPedidoEstadoFinalizado} {
+		t.Run(want.Error(), func(t *testing.T) {
+			repo := &fakePrendaRepo{addErr: want}
+			_, err := NewPrendaService(repo).AsociarServicio(context.Background(), 2, &models.PrendaServicioCreateRequest{ServicioID: 3})
+			if !errors.Is(err, want) || repo.addCalls != 1 { t.Fatalf("error=%v calls=%d", err, repo.addCalls) }
+		})
+	}
+}
+
+func TestPrendaServiceIDsInvalidosNoConsultanRepositorio(t *testing.T) {
+	repo := &fakePrendaRepo{}
+	s := NewPrendaService(repo)
+	_, err := s.AsociarServicio(context.Background(), 0, &models.PrendaServicioCreateRequest{ServicioID: 1})
+	if !errors.Is(err, repository.ErrPrendaNoEncontrada) { t.Fatal(err) }
+	if err = s.QuitarServicio(context.Background(), 1, 0); !errors.Is(err, repository.ErrPrendaServicioNoEncontrado) { t.Fatal(err) }
+	if repo.addCalls != 0 || repo.removeCalls != 0 { t.Fatal("ID invalido llego al repositorio") }
 }
