@@ -1,0 +1,1631 @@
+openapi: 3.0.3
+info:
+  title: SeLava Backend API
+  description: >
+    API del sistema de gestion de la lavanderia SeLava (ventas, inventario,
+    clientes, usuarios). Este documento cubre los endpoints implementados
+    hasta el Sprint 3: autenticacion, clientes, catalogos, pedidos,
+    servicios por prenda, detalle, estados, historial y cancelacion.
+  version: "1.2.0"
+
+servers:
+  - url: http://localhost:8080
+    description: Entorno local de desarrollo
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Salud
+    description: Verificacion de disponibilidad del servicio
+  - name: Autenticacion
+    description: Login y emision de tokens JWT
+  - name: Clientes
+    description: Gestion de clientes de la lavanderia
+  - name: Servicios
+    description: Gestion del catalogo de servicios de la lavanderia
+  - name: Tipos de Prenda
+    description: Gestion del catalogo de tipos de prenda
+  - name: Metodos de Pago
+    description: Gestion del catalogo de metodos de pago aceptados
+  - name: Pedidos
+    description: Registro de pedidos de la lavanderia
+  - name: Prendas
+    description: Gestion de los servicios asociados a las prendas
+  - name: Estados de Pedido
+    description: Catalogo y flujo de estados de los pedidos
+
+paths:
+  /health:
+    get:
+      tags: [Salud]
+      summary: Verifica que el servicio este en linea
+      security: []
+      responses:
+        "200":
+          description: El servicio esta funcionando
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/auth/login:
+    post:
+      tags: [Autenticacion]
+      summary: Inicia sesion y devuelve un token JWT
+      description: >
+        Devuelve un token JWT que debe enviarse como Bearer token para
+        consumir los endpoints protegidos del API.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Falta email o contrasena
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Email o contrasena incorrectos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/pedidos:
+    post:
+      tags: [Pedidos]
+      summary: Crea un pedido junto con sus prendas
+      description: >
+        Asocia el pedido al cliente indicado y al usuario autenticado, y
+        registra en la misma operacion todas las prendas incluidas. El
+        estado inicial siempre se establece como Recibido. La creacion es
+        atomica: si alguna prenda falla (por ejemplo, un tipo_prenda_id
+        que no existe), no se crea el pedido ni ninguna de sus prendas.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PedidoCreateRequest"
+      responses:
+        "201":
+          description: Pedido y prendas creados exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PedidoConPrendas"
+        "400":
+          description: Cuerpo de la peticion invalido (JSON malformado)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: No existe el cliente o alguno de los tipos de prenda indicados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/pedidos/{pedidoID}:
+    get:
+      tags: [Pedidos]
+      x-roles: [Administrador, Recepcionista, Operario]
+      summary: Consulta el detalle completo de un pedido
+      description: Devuelve el pedido junto con su cliente, prendas, servicios asociados, estado actual y pagos.
+      parameters:
+        - name: pedidoID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Detalle completo del pedido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PedidoDetalle"
+        "400":
+          description: ID de pedido inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "404":
+          description: El pedido no existe o está inactivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/pedidos/{pedidoID}/historial-estados:
+    get:
+      tags: [Pedidos]
+      x-roles: [Administrador, Recepcionista, Operario]
+      summary: Consulta el historial de estados de un pedido
+      description: Devuelve todos los cambios de estado registrados para el pedido, ordenados desde el más antiguo al más reciente.
+      parameters:
+        - name: pedidoID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Historial del pedido
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PedidoEstadoHistorialDetalle"
+              example:
+                - id: 12
+                  pedido_id: 42
+                  estado_id: 3
+                  usuario_id: 7
+                  fecha_cambio: "2026-09-07T16:30:00Z"
+                  observaciones: Pedido listo para entrega
+                  created_at: "2026-09-07T16:30:00Z"
+                  estado: { id: 3, nombre: Rackeado, orden: 2 }
+                  usuario: { id: 7, nombre: Ana, apellido: Martinez }
+        "400":
+          description: ID de pedido inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "404":
+          description: El pedido no existe o está inactivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/pedidos/{pedidoID}/cancelar:
+    put:
+      tags: [Pedidos]
+      x-roles: [Administrador, Recepcionista]
+      summary: Cancela un pedido
+      description: Marca el pedido como Cancelado y registra el cambio en el historial. Solo se permite mientras el pedido conserve el estado Recibido.
+      parameters:
+        - name: pedidoID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Pedido cancelado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pedido"
+        "400":
+          description: ID de pedido inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: El pedido no existe o está inactivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: El pedido ya inició el lavado o no puede cancelarse
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/pedidos/{pedidoID}/estado:
+    put:
+      tags: [Pedidos]
+      x-roles: [Administrador, Recepcionista, Operario]
+      summary: Actualiza el estado actual de un pedido
+      description: >
+        Actualiza el estado del pedido y registra en el historial el usuario
+        autenticado, la fecha del cambio y las observaciones opcionales. Ambas
+        operaciones se realizan en una sola transaccion.
+      parameters:
+        - name: pedidoID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PedidoEstadoUpdateRequest"
+            example:
+              estado_id: 3
+              observaciones: Pedido listo para entrega
+      responses:
+        "200":
+          description: Estado actualizado e historial registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PedidoEstadoHistorial"
+        "400":
+          description: ID de pedido o cuerpo de la peticion invalido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: El pedido o el estado indicado no existe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "409":
+          description: El cambio retrocede el estado, el pedido ya fue entregado/cancelado o se intentó cancelar mediante este endpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/estados-pedido/:
+    get:
+      tags: [Estados de Pedido]
+      x-roles: [Administrador, Recepcionista, Operario]
+      summary: Lista el catalogo de estados de pedido
+      description: >
+        Devuelve los estados ordenados por `orden`. El flujo configurado es
+        Recibido (1), Rackeado (2), Entregado (3), con Cancelado (99) como
+        salida excepcional. Requiere JWT y admite cualquiera de los tres roles.
+      responses:
+        "200":
+          description: Catalogo ordenado de estados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EstadoPedido"
+              example:
+                - { id: 1, nombre: Recibido, orden: 1, created_at: "2026-09-07T15:00:00Z", updated_at: "2026-09-07T15:00:00Z" }
+                - { id: 3, nombre: Rackeado, orden: 2, created_at: "2026-09-07T15:00:00Z", updated_at: "2026-09-07T15:00:00Z" }
+                - { id: 4, nombre: Entregado, orden: 3, created_at: "2026-09-07T15:00:00Z", updated_at: "2026-09-07T15:00:00Z" }
+                - { id: 2, nombre: Cancelado, orden: 99, created_at: "2026-09-07T15:00:00Z", updated_at: "2026-09-07T15:00:00Z" }
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/prendas/{prendaID}/servicios:
+    post:
+      tags: [Prendas]
+      x-roles: [Administrador, Recepcionista]
+      summary: Asocia un servicio a una prenda existente
+      description: >
+        Captura el precio base vigente del servicio como precio aplicado y
+        recalcula el total del pedido al que pertenece la prenda.
+      parameters:
+        - name: prendaID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrendaServicioCreateRequest"
+            example:
+              servicio_id: 3
+      responses:
+        "201":
+          description: Servicio asociado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrendaServicio"
+        "400":
+          description: ID de prenda o cuerpo de la peticion invalido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: La prenda o el servicio activo no existe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: El servicio ya esta asociado o el pedido ya fue entregado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/prendas/{prendaID}/servicios/{servicioID}:
+    delete:
+      tags: [Prendas]
+      x-roles: [Administrador, Recepcionista]
+      summary: Quita un servicio de una prenda existente
+      description: Quita la asociacion y recalcula el total del pedido.
+      parameters:
+        - name: prendaID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: servicioID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "204":
+          description: Servicio quitado exitosamente
+        "400":
+          description: ID de prenda o servicio invalido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: La prenda o la asociacion no existe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: El pedido ya fue entregado y no puede modificarse
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/clientes:
+    post:
+      tags: [Clientes]
+      summary: Crea un nuevo cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClienteCreateRequest"
+      responses:
+        "201":
+          description: Cliente creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cliente"
+        "400":
+          description: Cuerpo de la peticion invalido (JSON malformado)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "409":
+          description: El email ya esta en uso por otro cliente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+    get:
+      tags: [Clientes]
+      summary: Lista todos los clientes
+      responses:
+        "200":
+          description: Listado de clientes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Cliente"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/clientes/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID numerico del cliente
+        schema:
+          type: integer
+          example: 1
+
+    get:
+      tags: [Clientes]
+      summary: Obtiene un cliente por ID
+      responses:
+        "200":
+          description: Cliente encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cliente"
+        "400":
+          description: ID invalido (no numerico)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/ClienteNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+    put:
+      tags: [Clientes]
+      summary: Actualiza campos de un cliente (parcial)
+      description: >
+        Solo los campos incluidos en el body se actualizan; los omitidos
+        conservan su valor actual.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClienteUpdateRequest"
+      responses:
+        "200":
+          description: Cliente actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cliente"
+        "400":
+          description: ID o cuerpo de la peticion invalido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/ClienteNoEncontrado"
+        "409":
+          description: El nuevo email ya esta en uso por otro cliente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+    delete:
+      tags: [Clientes]
+      summary: Elimina logicamente un cliente
+      description: >
+        Borrado logico: marca activo = false en vez de eliminar el registro,
+        para conservar el historial de pedidos/pagos vinculados.
+      responses:
+        "204":
+          description: Cliente eliminado exitosamente (sin contenido)
+        "400":
+          description: ID invalido (no numerico)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/ClienteNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/servicios:
+    get:
+      tags: [Servicios]
+      summary: Lista todos los servicios
+      responses:
+        "200":
+          description: Listado de servicios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Servicio"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    post:
+      tags: [Servicios]
+      summary: Crea un servicio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServicioCreateRequest"
+      responses:
+        "201":
+          description: Servicio creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Servicio"
+        "400":
+          description: Cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "409":
+          description: Ya existe un servicio con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/servicios/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    get:
+      tags: [Servicios]
+      summary: Obtiene un servicio por ID
+      responses:
+        "200":
+          description: Servicio encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Servicio"
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/ServicioNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    put:
+      tags: [Servicios]
+      summary: Actualiza los campos enviados de un servicio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServicioUpdateRequest"
+      responses:
+        "200":
+          description: Servicio actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Servicio"
+        "400":
+          description: ID o cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/ServicioNoEncontrado"
+        "409":
+          description: Ya existe un servicio con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    delete:
+      tags: [Servicios]
+      summary: Desactiva un servicio
+      description: Realiza borrado logico estableciendo activo en false.
+      responses:
+        "204":
+          description: Servicio desactivado
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/ServicioNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/tipos-prenda:
+    get:
+      tags: [Tipos de Prenda]
+      summary: Lista todos los tipos de prenda
+      responses:
+        "200":
+          description: Listado de tipos de prenda
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TipoPrenda"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    post:
+      tags: [Tipos de Prenda]
+      summary: Crea un tipo de prenda
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TipoPrendaCreateRequest"
+      responses:
+        "201":
+          description: Tipo de prenda creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TipoPrenda"
+        "400":
+          description: Cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "409":
+          description: Ya existe un tipo de prenda con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/tipos-prenda/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    get:
+      tags: [Tipos de Prenda]
+      summary: Obtiene un tipo de prenda por ID
+      responses:
+        "200":
+          description: Tipo de prenda encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TipoPrenda"
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/TipoPrendaNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    put:
+      tags: [Tipos de Prenda]
+      summary: Actualiza los campos enviados de un tipo de prenda
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TipoPrendaUpdateRequest"
+      responses:
+        "200":
+          description: Tipo de prenda actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TipoPrenda"
+        "400":
+          description: ID o cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/TipoPrendaNoEncontrado"
+        "409":
+          description: Ya existe un tipo de prenda con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    delete:
+      tags: [Tipos de Prenda]
+      summary: Desactiva un tipo de prenda
+      responses:
+        "204":
+          description: Tipo de prenda desactivado
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/TipoPrendaNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/metodos-pago:
+    get:
+      tags: [Metodos de Pago]
+      summary: Lista todos los metodos de pago
+      responses:
+        "200":
+          description: Listado de metodos de pago
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MetodoPago"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    post:
+      tags: [Metodos de Pago]
+      summary: Crea un metodo de pago
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MetodoPagoCreateRequest"
+      responses:
+        "201":
+          description: Metodo de pago creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetodoPago"
+        "400":
+          description: Cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "409":
+          description: Ya existe un metodo de pago con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/metodos-pago/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    get:
+      tags: [Metodos de Pago]
+      summary: Obtiene un metodo de pago por ID
+      responses:
+        "200":
+          description: Metodo de pago encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetodoPago"
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/MetodoPagoNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    put:
+      tags: [Metodos de Pago]
+      summary: Actualiza los campos enviados de un metodo de pago
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MetodoPagoUpdateRequest"
+      responses:
+        "200":
+          description: Metodo de pago actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetodoPago"
+        "400":
+          description: ID o cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/MetodoPagoNoEncontrado"
+        "409":
+          description: Ya existe un metodo de pago con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    delete:
+      tags: [Metodos de Pago]
+      summary: Desactiva un metodo de pago
+      responses:
+        "204":
+          description: Metodo de pago desactivado
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/MetodoPagoNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Token emitido por /api/auth/login. Debe enviarse en el header
+        Authorization con el formato Bearer <token>.
+
+  responses:
+    ErrorInterno:
+      description: Error interno del servidor
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    NoAutenticado:
+      description: Token faltante, mal formado, invalido o expirado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    NoAutorizado:
+      description: El rol del usuario no tiene permisos para el recurso
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    ClienteNoEncontrado:
+      description: No existe un cliente con ese ID
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    ServicioNoEncontrado:
+      description: No existe un servicio con ese ID
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    TipoPrendaNoEncontrado:
+      description: No existe un tipo de prenda con ese ID
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    MetodoPagoNoEncontrado:
+      description: No existe un metodo de pago con ese ID
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    ErrorValidacion:
+      description: Uno o mas campos no pasaron las validaciones de formato
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationErrorResponse"
+
+  schemas:
+    Pedido:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        cliente_id:
+          type: integer
+          example: 4
+        usuario_id:
+          type: integer
+          example: 2
+        estado_actual_id:
+          type: integer
+          example: 1
+        fecha_recibido:
+          type: string
+          format: date-time
+        fecha_entrega_estimada:
+          type: string
+          format: date-time
+          nullable: true
+        fecha_entrega_real:
+          type: string
+          format: date-time
+          nullable: true
+        total:
+          type: number
+          format: double
+          minimum: 0
+          example: 0
+        observaciones:
+          type: string
+          nullable: true
+        activo:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PedidoDetalle:
+      description: Pedido con todas sus relaciones de cliente, prendas, estado actual y pagos.
+      allOf:
+        - $ref: "#/components/schemas/Pedido"
+        - type: object
+          required: [cliente, prendas, estado_actual, pagos]
+          properties:
+            cliente:
+              $ref: "#/components/schemas/Cliente"
+            prendas:
+              type: array
+              items:
+                $ref: "#/components/schemas/Prenda"
+            estado_actual:
+              $ref: "#/components/schemas/EstadoPedido"
+            pagos:
+              type: array
+              items:
+                $ref: "#/components/schemas/PagoDetalle"
+
+    EstadoPedido:
+      type: object
+      properties:
+        id:
+          type: integer
+        nombre:
+          type: string
+        orden:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PedidoCreateRequest:
+      type: object
+      required: [cliente_id, prendas]
+      properties:
+        cliente_id:
+          type: integer
+          minimum: 1
+          example: 4
+        fecha_entrega_estimada:
+          type: string
+          format: date-time
+        observaciones:
+          type: string
+          example: Entregar después de las 16:00
+        prendas:
+          type: array
+          minItems: 1
+          description: Debe incluir al menos una prenda.
+          items:
+            $ref: "#/components/schemas/PrendaCreateRequest"
+
+    PedidoEstadoUpdateRequest:
+      type: object
+      required: [estado_id]
+      properties:
+        estado_id:
+          type: integer
+          minimum: 1
+          example: 2
+        observaciones:
+          type: string
+          maxLength: 255
+          example: La ropa ingreso al proceso de lavado
+
+    PedidoEstadoHistorial:
+      type: object
+      properties:
+        id:
+          type: integer
+        pedido_id:
+          type: integer
+        estado_id:
+          type: integer
+        usuario_id:
+          type: integer
+        fecha_cambio:
+          type: string
+          format: date-time
+        observaciones:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    PedidoEstadoHistorialDetalle:
+      allOf:
+        - $ref: "#/components/schemas/PedidoEstadoHistorial"
+        - type: object
+          required: [estado, usuario]
+          properties:
+            estado:
+              $ref: "#/components/schemas/EstadoPedido"
+            usuario:
+              $ref: "#/components/schemas/UsuarioResumen"
+
+    UsuarioResumen:
+      type: object
+      required: [id, nombre, apellido]
+      properties:
+        id:
+          type: integer
+          example: 7
+        nombre:
+          type: string
+          example: Ana
+        apellido:
+          type: string
+          example: Martinez
+
+    PrendaCreateRequest:
+      type: object
+      required: [tipo_prenda_id, cantidad, servicios]
+      properties:
+        tipo_prenda_id:
+          type: integer
+          minimum: 1
+          example: 2
+        descripcion:
+          type: string
+          example: Camisa a rayas azules
+        cantidad:
+          type: integer
+          minimum: 1
+          example: 3
+        color:
+          type: string
+          maxLength: 30
+          example: Azul
+        servicios:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [servicio_id]
+            properties:
+              servicio_id:
+                type: integer
+                minimum: 1
+
+    Prenda:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 10
+        pedido_id:
+          type: integer
+          example: 4
+        tipo_prenda_id:
+          type: integer
+          example: 2
+        tipo_prenda:
+          $ref: "#/components/schemas/TipoPrenda"
+        descripcion:
+          type: string
+          nullable: true
+          example: Camisa a rayas azules
+        cantidad:
+          type: integer
+          example: 3
+        color:
+          type: string
+          nullable: true
+          example: Azul
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        servicios:
+          type: array
+          items:
+            $ref: "#/components/schemas/PrendaServicio"
+
+    PrendaServicio:
+      type: object
+      properties:
+        id:
+          type: integer
+        prenda_id:
+          type: integer
+        servicio_id:
+          type: integer
+        servicio:
+          $ref: "#/components/schemas/Servicio"
+        precio_aplicado:
+          type: number
+          format: double
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PrendaServicioCreateRequest:
+      type: object
+      required: [servicio_id]
+      properties:
+        servicio_id:
+          type: integer
+          minimum: 1
+          example: 3
+
+    PedidoConPrendas:
+      description: Un pedido junto con las prendas que quedaron registradas en la misma operacion.
+      allOf:
+        - $ref: "#/components/schemas/Pedido"
+        - type: object
+          properties:
+            prendas:
+              type: array
+              items:
+                $ref: "#/components/schemas/Prenda"
+
+    TipoPrenda:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: Camisa
+        descripcion:
+          type: string
+          nullable: true
+          example: Camisas de manga corta o larga
+        activo:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TipoPrendaCreateRequest:
+      type: object
+      required: [nombre]
+      properties:
+        nombre:
+          type: string
+          maxLength: 50
+          example: Camisa
+        descripcion:
+          type: string
+          maxLength: 255
+
+    TipoPrendaUpdateRequest:
+      type: object
+      description: Todos los campos son opcionales; solo se actualizan los enviados.
+      properties:
+        nombre:
+          type: string
+          maxLength: 50
+        descripcion:
+          type: string
+          maxLength: 255
+        activo:
+          type: boolean
+
+    Servicio:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: Lavado en seco
+        descripcion:
+          type: string
+          nullable: true
+          example: Limpieza especializada para prendas delicadas
+        precio_base:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          example: 35.5
+        tiempo_estimado_horas:
+          type: integer
+          nullable: true
+          example: 24
+        activo:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ServicioCreateRequest:
+      type: object
+      required: [nombre, precio_base]
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          example: Lavado en seco
+        descripcion:
+          type: string
+        precio_base:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          example: 35.5
+        tiempo_estimado_horas:
+          type: integer
+          example: 24
+
+    ServicioUpdateRequest:
+      type: object
+      description: Todos los campos son opcionales; solo se actualizan los enviados.
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+        descripcion:
+          type: string
+        precio_base:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+        tiempo_estimado_horas:
+          type: integer
+        activo:
+          type: boolean
+
+    MetodoPago:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: Efectivo
+        activo:
+          type: boolean
+          example: true
+
+    MetodoPagoCreateRequest:
+      type: object
+      required: [nombre]
+      properties:
+        nombre:
+          type: string
+          maxLength: 50
+          example: Efectivo
+
+    MetodoPagoUpdateRequest:
+      type: object
+      description: Todos los campos son opcionales; solo se actualizan los enviados.
+      properties:
+        nombre:
+          type: string
+          maxLength: 50
+        activo:
+          type: boolean
+
+    Pago:
+      type: object
+      properties:
+        id:
+          type: integer
+        pedido_id:
+          type: integer
+        metodo_pago_id:
+          type: integer
+        usuario_id:
+          type: integer
+        monto:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+        referencia:
+          type: string
+          nullable: true
+        fecha_pago:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    PagoDetalle:
+      description: Pago registrado junto con el metodo de pago utilizado.
+      allOf:
+        - $ref: "#/components/schemas/Pago"
+        - type: object
+          properties:
+            metodo_pago:
+              $ref: "#/components/schemas/MetodoPago"
+
+    Cliente:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: Maria
+        apellido:
+          type: string
+          example: Gonzalez
+        telefono:
+          type: string
+          example: "+502 5555-1234"
+        email:
+          type: string
+          format: email
+          example: maria.gonzalez@example.com
+        direccion:
+          type: string
+          example: 3a Calle 4-56, Zona 10
+        activo:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ClienteCreateRequest:
+      type: object
+      required: [nombre, apellido, telefono]
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          description: Solo letras, espacios, apostrofes y guiones
+          example: Maria
+        apellido:
+          type: string
+          maxLength: 100
+          example: Gonzalez
+        telefono:
+          type: string
+          maxLength: 20
+          description: Entre 8 y 15 digitos, puede incluir +, espacios o guiones
+          example: "+502 5555-1234"
+        email:
+          type: string
+          maxLength: 150
+          description: Opcional. Debe tener formato de email valido si se envia.
+          example: maria.gonzalez@example.com
+        direccion:
+          type: string
+          maxLength: 255
+          example: 3a Calle 4-56, Zona 10
+
+    ClienteUpdateRequest:
+      type: object
+      description: Todos los campos son opcionales; solo se actualizan los enviados.
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+        apellido:
+          type: string
+          maxLength: 100
+        telefono:
+          type: string
+          maxLength: 20
+        email:
+          type: string
+          maxLength: 150
+        direccion:
+          type: string
+          maxLength: 255
+        activo:
+          type: boolean
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: cajero@selava.com
+        password:
+          type: string
+          format: password
+          example: contrasenaSegura123
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Token JWT firmado, valido por 8 horas
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: cliente no encontrado
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        errores:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: telefono
+              message:
+                type: string
+                example: debe tener entre 8 y 15 digitos, puede incluir +, espacios o guiones
