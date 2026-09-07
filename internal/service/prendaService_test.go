@@ -84,7 +84,9 @@ func TestPrendaServicePropagaRechazosDeAsociacion(t *testing.T) {
 		t.Run(want.Error(), func(t *testing.T) {
 			repo := &fakePrendaRepo{addErr: want}
 			_, err := NewPrendaService(repo).AsociarServicio(context.Background(), 2, &models.PrendaServicioCreateRequest{ServicioID: 3})
-			if !errors.Is(err, want) || repo.addCalls != 1 { t.Fatalf("error=%v calls=%d", err, repo.addCalls) }
+			if !errors.Is(err, want) || repo.addCalls != 1 {
+				t.Fatalf("error=%v calls=%d", err, repo.addCalls)
+			}
 		})
 	}
 }
@@ -93,7 +95,13 @@ func TestPrendaServiceIDsInvalidosNoConsultanRepositorio(t *testing.T) {
 	repo := &fakePrendaRepo{}
 	s := NewPrendaService(repo)
 	_, err := s.AsociarServicio(context.Background(), 0, &models.PrendaServicioCreateRequest{ServicioID: 1})
-	if !errors.Is(err, repository.ErrPrendaNoEncontrada) { t.Fatal(err) }
-	if err = s.QuitarServicio(context.Background(), 1, 0); !errors.Is(err, repository.ErrPrendaServicioNoEncontrado) { t.Fatal(err) }
-	if repo.addCalls != 0 || repo.removeCalls != 0 { t.Fatal("ID invalido llego al repositorio") }
+	if !errors.Is(err, repository.ErrPrendaNoEncontrada) {
+		t.Fatal(err)
+	}
+	if err = s.QuitarServicio(context.Background(), 1, 0); !errors.Is(err, repository.ErrPrendaServicioNoEncontrado) {
+		t.Fatal(err)
+	}
+	if repo.addCalls != 0 || repo.removeCalls != 0 {
+		t.Fatal("ID invalido llego al repositorio")
+	}
 }
