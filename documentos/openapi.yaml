@@ -5,8 +5,8 @@ info:
     API del sistema de gestion de la lavanderia SeLava (ventas, inventario,
     clientes, usuarios). Este documento cubre los endpoints implementados
     hasta el Sprint 3: autenticacion, clientes, catalogos, pedidos,
-    servicios por prenda, detalle, estados, historial y cancelacion.
-  version: "1.2.0"
+    servicios por prenda, detalle, estados, pagos, historial y cancelacion.
+  version: "1.3.0"
 
 servers:
   - url: http://localhost:8080
@@ -30,6 +30,8 @@ tags:
     description: Gestion del catalogo de metodos de pago aceptados
   - name: Pedidos
     description: Registro de pedidos de la lavanderia
+  - name: Pagos
+    description: Abonos, saldo pendiente e historial financiero de los pedidos
   - name: Prendas
     description: Gestion de los servicios asociados a las prendas
   - name: Estados de Pedido
@@ -216,6 +218,100 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/pedidos/{pedidoID}/pagos:
+    parameters:
+      - name: pedidoID
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      tags: [Pagos]
+      x-roles: [Administrador, Recepcionista]
+      summary: Registra un pago o abono para un pedido
+      description: Impide pagos en pedidos cancelados, sin saldo o cuyo monto exceda el saldo pendiente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PagoCreateRequest"
+      responses:
+        "201":
+          description: Pago registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PagoDetalle"
+        "400":
+          description: ID o cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: El pedido o metodo de pago no existe
+        "409":
+          description: Pedido cancelado, sin saldo o monto superior al saldo pendiente
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    get:
+      tags: [Pagos]
+      x-roles: [Administrador, Recepcionista]
+      summary: Consulta el historial de pagos de un pedido
+      responses:
+        "200":
+          description: Pagos ordenados del mas antiguo al mas reciente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PagoDetalle"
+        "400":
+          description: ID de pedido invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: El pedido no existe o esta inactivo
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/pedidos/{pedidoID}/saldo:
+    get:
+      tags: [Pagos]
+      x-roles: [Administrador, Recepcionista]
+      summary: Consulta el saldo pendiente de un pedido
+      parameters:
+        - name: pedidoID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Resumen del saldo del pedido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaldoPedido"
+        "400":
+          description: ID de pedido invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: El pedido no existe o esta inactivo
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
@@ -1496,6 +1592,50 @@ components:
           type: string
           format: date-time
 
+    PagoCreateRequest:
+      type: object
+      required: [metodo_pago_id, monto]
+      properties:
+        metodo_pago_id:
+          type: integer
+          minimum: 1
+        monto:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          multipleOf: 0.01
+        referencia:
+          type: string
+          maxLength: 100
+          nullable: true
+
+    SaldoPedido:
+      type: object
+      required: [pedido_id, total, total_pagado, saldo_pendiente]
+      properties:
+        pedido_id:
+          type: integer
+        total:
+          type: number
+          format: double
+        total_pagado:
+          type: number
+          format: double
+        saldo_pendiente:
+          type: number
+          format: double
+
+    PagoUsuario:
+      type: object
+      properties:
+        id:
+          type: integer
+        nombre:
+          type: string
+        apellido:
+          type: string
+
     PagoDetalle:
       description: Pago registrado junto con el metodo de pago utilizado.
       allOf:
@@ -1504,6 +1644,8 @@ components:
           properties:
             metodo_pago:
               $ref: "#/components/schemas/MetodoPago"
+            usuario:
+              $ref: "#/components/schemas/PagoUsuario"
 
     Cliente:
       type: object

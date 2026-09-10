@@ -42,6 +42,51 @@ func (r *PagoRepository) GetSaldo(ctx context.Context, pedidoID int) (*models.Sa
 	return saldo, nil
 }
 
+func (r *PagoRepository) ListByPedido(ctx context.Context, pedidoID int) ([]models.PagoDetalle, error) {
+	var existe bool
+	if err := r.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pedidos WHERE id = $1 AND activo = TRUE)`, pedidoID).Scan(&existe); err != nil {
+		return nil, fmt.Errorf("error verificando pedido para historial de pagos: %w", err)
+	}
+	if !existe {
+		return nil, ErrPedidoNoEncontrado
+	}
+
+	rows, err := r.db.Query(ctx, `
+		SELECT pg.id, pg.pedido_id, pg.metodo_pago_id, pg.usuario_id, pg.monto,
+		       pg.referencia, pg.fecha_pago, pg.created_at,
+		       mp.id, mp.nombre, mp.activo,
+		       u.id, u.nombre, u.apellido
+		FROM pagos pg
+		JOIN metodos_pago mp ON mp.id = pg.metodo_pago_id
+		JOIN usuarios u ON u.id = pg.usuario_id
+		WHERE pg.pedido_id = $1
+		ORDER BY pg.fecha_pago ASC, pg.id ASC`, pedidoID)
+	if err != nil {
+		return nil, fmt.Errorf("error consultando historial de pagos: %w", err)
+	}
+	defer rows.Close()
+
+	pagos := make([]models.PagoDetalle, 0)
+	for rows.Next() {
+		var pago models.PagoDetalle
+		var usuario models.PagoUsuario
+		if err := rows.Scan(
+			&pago.ID, &pago.PedidoID, &pago.MetodoPagoID, &pago.UsuarioID, &pago.Monto,
+			&pago.Referencia, &pago.FechaPago, &pago.CreatedAt,
+			&pago.MetodoPago.ID, &pago.MetodoPago.Nombre, &pago.MetodoPago.Activo,
+			&usuario.ID, &usuario.Nombre, &usuario.Apellido,
+		); err != nil {
+			return nil, fmt.Errorf("error leyendo historial de pagos: %w", err)
+		}
+		pago.Usuario = &usuario
+		pagos = append(pagos, pago)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error recorriendo historial de pagos: %w", err)
+	}
+	return pagos, nil
+}
+
 func (r *PagoRepository) Create(ctx context.Context, pedidoID int, req *models.PagoCreateRequest, usuarioID int) (*models.PagoDetalle, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {

@@ -14,6 +14,14 @@ type fakePagoRepository struct {
 	created *models.PagoCreateRequest
 	err     error
 	saldo   *models.SaldoPedido
+	pagos   []models.PagoDetalle
+}
+
+func (r *fakePagoRepository) ListByPedido(_ context.Context, _ int) ([]models.PagoDetalle, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.pagos, nil
 }
 
 func (r *fakePagoRepository) GetSaldo(_ context.Context, _ int) (*models.SaldoPedido, error) {
@@ -82,5 +90,17 @@ func TestPagoServiceObtenerSaldoRechazaIDInvalido(t *testing.T) {
 	_, err := service.ObtenerSaldo(context.Background(), 0)
 	if !errors.Is(err, repository.ErrPedidoNoEncontrado) {
 		t.Fatalf("error = %v, se esperaba ErrPedidoNoEncontrado", err)
+	}
+}
+
+func TestPagoServiceObtenerHistorial(t *testing.T) {
+	esperados := []models.PagoDetalle{{Pago: models.Pago{ID: 1, PedidoID: 3, Monto: 20}}, {Pago: models.Pago{ID: 2, PedidoID: 3, Monto: 15}}}
+	service := NewPagoService(&fakePagoRepository{pagos: esperados})
+	pagos, err := service.ObtenerHistorial(context.Background(), 3)
+	if err != nil {
+		t.Fatalf("ObtenerHistorial() error = %v", err)
+	}
+	if len(pagos) != 2 || pagos[1].ID != 2 {
+		t.Fatalf("historial inesperado: %+v", pagos)
 	}
 }

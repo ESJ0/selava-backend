@@ -19,6 +19,17 @@ import (
 type fakePagoControllerRepository struct {
 	err   error
 	saldo *models.SaldoPedido
+	pagos []models.PagoDetalle
+}
+
+func (r *fakePagoControllerRepository) ListByPedido(_ context.Context, _ int) ([]models.PagoDetalle, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	if r.pagos == nil {
+		return []models.PagoDetalle{}, nil
+	}
+	return r.pagos, nil
 }
 
 func (r *fakePagoControllerRepository) GetSaldo(_ context.Context, _ int) (*models.SaldoPedido, error) {
@@ -50,6 +61,15 @@ func pagoSaldoHandler(t *testing.T, repo *fakePagoControllerRepository) http.Han
 	authMW := middleware.NewAuthMiddleware("pago-test-secret")
 	router := chi.NewRouter()
 	router.With(authMW.Authenticate).Get("/api/pedidos/{pedidoID}/saldo", controller.ObtenerSaldo)
+	return router
+}
+
+func pagoHistorialHandler(t *testing.T, repo *fakePagoControllerRepository) http.Handler {
+	t.Helper()
+	controller := NewPagoController(servicelayer.NewPagoService(repo))
+	authMW := middleware.NewAuthMiddleware("pago-test-secret")
+	router := chi.NewRouter()
+	router.With(authMW.Authenticate).Get("/api/pedidos/{pedidoID}/pagos", controller.ObtenerHistorial)
 	return router
 }
 
@@ -126,6 +146,30 @@ func TestPagoControllerObtenerSaldoReturnsNotFound(t *testing.T) {
 	res := httptest.NewRecorder()
 	pagoSaldoHandler(t, &fakePagoControllerRepository{err: repository.ErrPedidoNoEncontrado}).ServeHTTP(res, pagoAuthenticatedRequest(t, http.MethodGet, "/api/pedidos/99/saldo", ""))
 	if res.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, body = %s", res.Code, res.Body.String())
+	}
+}
+
+func TestPagoControllerObtenerHistorialReturnsOK(t *testing.T) {
+	repo := &fakePagoControllerRepository{pagos: []models.PagoDetalle{{Pago: models.Pago{ID: 1, PedidoID: 4, Monto: 30}}}}
+	res := httptest.NewRecorder()
+	pagoHistorialHandler(t, repo).ServeHTTP(res, pagoAuthenticatedRequest(t, http.MethodGet, "/api/pedidos/4/pagos", ""))
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", res.Code, res.Body.String())
+	}
+	var pagos []models.PagoDetalle
+	if err := json.NewDecoder(res.Body).Decode(&pagos); err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+	if len(pagos) != 1 || pagos[0].Monto != 30 {
+		t.Fatalf("historial inesperado: %+v", pagos)
+	}
+}
+
+func TestPagoControllerObtenerHistorialReturnsEmptyArray(t *testing.T) {
+	res := httptest.NewRecorder()
+	pagoHistorialHandler(t, &fakePagoControllerRepository{}).ServeHTTP(res, pagoAuthenticatedRequest(t, http.MethodGet, "/api/pedidos/4/pagos", ""))
+	if res.Code != http.StatusOK || strings.TrimSpace(res.Body.String()) != "[]" {
 		t.Fatalf("status = %d, body = %s", res.Code, res.Body.String())
 	}
 }
