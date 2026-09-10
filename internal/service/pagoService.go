@@ -11,11 +11,19 @@ import (
 
 type PagoRepository interface {
 	Create(ctx context.Context, pedidoID int, req *models.PagoCreateRequest, usuarioID int) (*models.PagoDetalle, error)
+	GetSaldo(ctx context.Context, pedidoID int) (*models.SaldoPedido, error)
 }
 
 type PagoService struct{ repo PagoRepository }
 
 func NewPagoService(repo PagoRepository) *PagoService { return &PagoService{repo: repo} }
+
+func (s *PagoService) ObtenerSaldo(ctx context.Context, pedidoID int) (*models.SaldoPedido, error) {
+	if pedidoID <= 0 {
+		return nil, repository.ErrPedidoNoEncontrado
+	}
+	return s.repo.GetSaldo(ctx, pedidoID)
+}
 
 func (s *PagoService) RegistrarPago(ctx context.Context, pedidoID int, req *models.PagoCreateRequest, usuarioID int) (*models.PagoDetalle, error) {
 	if pedidoID <= 0 {

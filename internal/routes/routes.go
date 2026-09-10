@@ -77,6 +77,7 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Put("/{pedidoID}/cancelar", pedidoController.Cancelar)
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Post("/{pedidoID}/prendas", prendaController.CrearVarias)
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Post("/{pedidoID}/pagos", pagoController.Registrar)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Get("/{pedidoID}/saldo", pagoController.ObtenerSaldo)
 		r.Get("/{pedidoID}/historial-estados", pedidoController.ObtenerHistorialEstados)
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista, authmiddleware.RolOperario)).Put("/{pedidoID}/estado", pedidoController.ActualizarEstado)
 	})

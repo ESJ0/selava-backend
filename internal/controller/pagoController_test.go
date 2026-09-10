@@ -16,7 +16,17 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type fakePagoControllerRepository struct{ err error }
+type fakePagoControllerRepository struct {
+	err   error
+	saldo *models.SaldoPedido
+}
+
+func (r *fakePagoControllerRepository) GetSaldo(_ context.Context, _ int) (*models.SaldoPedido, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.saldo, nil
+}
 
 func (r *fakePagoControllerRepository) Create(_ context.Context, pedidoID int, req *models.PagoCreateRequest, usuarioID int) (*models.PagoDetalle, error) {
 	if r.err != nil {
@@ -34,6 +44,15 @@ func pagoRegistrarHandler(t *testing.T, repo *fakePagoControllerRepository) http
 	return router
 }
 
+func pagoSaldoHandler(t *testing.T, repo *fakePagoControllerRepository) http.Handler {
+	t.Helper()
+	controller := NewPagoController(servicelayer.NewPagoService(repo))
+	authMW := middleware.NewAuthMiddleware("pago-test-secret")
+	router := chi.NewRouter()
+	router.With(authMW.Authenticate).Get("/api/pedidos/{pedidoID}/saldo", controller.ObtenerSaldo)
+	return router
+}
+
 func pagoRequest(t *testing.T, body string) *http.Request {
 	t.Helper()
 	token, err := auth.GenerateToken("pago-test-secret", 7, middleware.RolRecepcionista)
@@ -43,6 +62,17 @@ func pagoRequest(t *testing.T, body string) *http.Request {
 	req := httptest.NewRequest(http.MethodPost, "/api/pedidos/4/pagos", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+token)
 	return req
+}
+
+func pagoAuthenticatedRequest(t *testing.T, method, target, body string) *http.Request {
+	t.Helper()
+	token, err := auth.GenerateToken("pago-test-secret", 7, middleware.RolRecepcionista)
+	if err != nil {
+		t.Fatalf("GenerateToken() error = %v", err)
+	}
+	request := httptest.NewRequest(method, target, strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer "+token)
+	return request
 }
 
 func TestPagoControllerRegistrarReturnsCreated(t *testing.T) {
@@ -72,6 +102,30 @@ func TestPagoControllerRegistrarReturnsUnprocessableEntity(t *testing.T) {
 	res := httptest.NewRecorder()
 	pagoRegistrarHandler(t, &fakePagoControllerRepository{}).ServeHTTP(res, pagoRequest(t, `{"metodo_pago_id":0,"monto":0}`))
 	if res.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, body = %s", res.Code, res.Body.String())
+	}
+}
+
+func TestPagoControllerObtenerSaldoReturnsOK(t *testing.T) {
+	repo := &fakePagoControllerRepository{saldo: &models.SaldoPedido{PedidoID: 4, Total: 80, TotalPagado: 30, SaldoPendiente: 50}}
+	res := httptest.NewRecorder()
+	pagoSaldoHandler(t, repo).ServeHTTP(res, pagoAuthenticatedRequest(t, http.MethodGet, "/api/pedidos/4/saldo", ""))
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", res.Code, res.Body.String())
+	}
+	var saldo models.SaldoPedido
+	if err := json.NewDecoder(res.Body).Decode(&saldo); err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+	if saldo.SaldoPendiente != 50 || saldo.TotalPagado != 30 {
+		t.Fatalf("saldo inesperado: %+v", saldo)
+	}
+}
+
+func TestPagoControllerObtenerSaldoReturnsNotFound(t *testing.T) {
+	res := httptest.NewRecorder()
+	pagoSaldoHandler(t, &fakePagoControllerRepository{err: repository.ErrPedidoNoEncontrado}).ServeHTTP(res, pagoAuthenticatedRequest(t, http.MethodGet, "/api/pedidos/99/saldo", ""))
+	if res.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, body = %s", res.Code, res.Body.String())
 	}
 }

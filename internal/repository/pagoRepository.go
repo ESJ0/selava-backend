@@ -22,6 +22,26 @@ type PagoRepository struct{ db *pgxpool.Pool }
 
 func NewPagoRepository(db *pgxpool.Pool) *PagoRepository { return &PagoRepository{db: db} }
 
+func (r *PagoRepository) GetSaldo(ctx context.Context, pedidoID int) (*models.SaldoPedido, error) {
+	saldo := &models.SaldoPedido{PedidoID: pedidoID}
+	err := r.db.QueryRow(ctx, `
+		SELECT p.total, COALESCE(SUM(pg.monto), 0)
+		FROM pedidos p
+		LEFT JOIN pagos pg ON pg.pedido_id = p.id
+		WHERE p.id = $1 AND p.activo = TRUE
+		GROUP BY p.id, p.total`, pedidoID).Scan(&saldo.Total, &saldo.TotalPagado)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrPedidoNoEncontrado
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error consultando saldo del pedido: %w", err)
+	}
+	saldo.Total = math.Round(saldo.Total*100) / 100
+	saldo.TotalPagado = math.Round(saldo.TotalPagado*100) / 100
+	saldo.SaldoPendiente = math.Max(0, math.Round((saldo.Total-saldo.TotalPagado)*100)/100)
+	return saldo, nil
+}
+
 func (r *PagoRepository) Create(ctx context.Context, pedidoID int, req *models.PagoCreateRequest, usuarioID int) (*models.PagoDetalle, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {

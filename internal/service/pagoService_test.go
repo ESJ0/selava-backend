@@ -13,6 +13,14 @@ import (
 type fakePagoRepository struct {
 	created *models.PagoCreateRequest
 	err     error
+	saldo   *models.SaldoPedido
+}
+
+func (r *fakePagoRepository) GetSaldo(_ context.Context, _ int) (*models.SaldoPedido, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.saldo, nil
 }
 
 func (r *fakePagoRepository) Create(_ context.Context, pedidoID int, req *models.PagoCreateRequest, usuarioID int) (*models.PagoDetalle, error) {
@@ -54,5 +62,25 @@ func TestPagoServiceRegistrarPagoPropagaConflictoDeSaldo(t *testing.T) {
 	_, err := service.RegistrarPago(context.Background(), 1, &models.PagoCreateRequest{MetodoPagoID: 1, Monto: 10}, 1)
 	if !errors.Is(err, repository.ErrPagoExcedeSaldo) {
 		t.Fatalf("error = %v, se esperaba ErrPagoExcedeSaldo", err)
+	}
+}
+
+func TestPagoServiceObtenerSaldo(t *testing.T) {
+	esperado := &models.SaldoPedido{PedidoID: 3, Total: 100, TotalPagado: 35, SaldoPendiente: 65}
+	service := NewPagoService(&fakePagoRepository{saldo: esperado})
+	saldo, err := service.ObtenerSaldo(context.Background(), 3)
+	if err != nil {
+		t.Fatalf("ObtenerSaldo() error = %v", err)
+	}
+	if saldo != esperado {
+		t.Fatalf("saldo = %+v, se esperaba %+v", saldo, esperado)
+	}
+}
+
+func TestPagoServiceObtenerSaldoRechazaIDInvalido(t *testing.T) {
+	service := NewPagoService(&fakePagoRepository{})
+	_, err := service.ObtenerSaldo(context.Background(), 0)
+	if !errors.Is(err, repository.ErrPedidoNoEncontrado) {
+		t.Fatalf("error = %v, se esperaba ErrPedidoNoEncontrado", err)
 	}
 }

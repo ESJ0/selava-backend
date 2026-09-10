@@ -21,6 +21,22 @@ func NewPagoController(service *service.PagoService) *PagoController {
 	return &PagoController{service: service}
 }
 
+func (pc *PagoController) ObtenerSaldo(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+	pedidoID, err := strconv.Atoi(chi.URLParam(r, "pedidoID"))
+	if err != nil || pedidoID <= 0 {
+		respondError(w, http.StatusBadRequest, "id de pedido invalido")
+		return
+	}
+	saldo, err := pc.service.ObtenerSaldo(ctx, pedidoID)
+	if err != nil {
+		pc.handleError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, saldo)
+}
+
 func (pc *PagoController) Registrar(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
