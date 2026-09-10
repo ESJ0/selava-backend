@@ -16,6 +16,14 @@ func TestSprint3CancelarRecibidoActualizaEstadoEHistorial(t *testing.T) {
 	if cancelled.EstadoActualID != f.state(t, "Cancelado") {
 		t.Fatalf("estado=%d", cancelled.EstadoActualID)
 	}
+	if !cancelled.Activo {
+		t.Fatal("la cancelación desactivó el pedido en vez de conservarlo como constancia")
+	}
+	detail, err := r.GetDetalle(f.ctx, p.ID)
+	mustSprint3(t, err)
+	if detail.EstadoActual.Nombre != "Cancelado" {
+		t.Fatalf("el pedido cancelado no siguió disponible: estado=%q", detail.EstadoActual.Nombre)
+	}
 	history, err := r.GetHistorialEstados(f.ctx, p.ID)
 	mustSprint3(t, err)
 	if len(history) != 1 || history[0].Estado.Nombre != "Cancelado" || history[0].Usuario.ID != f.userID || history[0].FechaCambio.IsZero() {
