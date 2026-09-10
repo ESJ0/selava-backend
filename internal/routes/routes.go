@@ -10,7 +10,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, prendaController *controller.PrendaController, estadoPedidoController *controller.EstadoPedidoController, authController *controller.AuthController, jwtSecret, allowedOrigins string) *chi.Mux {
+func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, pagoController *controller.PagoController, prendaController *controller.PrendaController, estadoPedidoController *controller.EstadoPedidoController, authController *controller.AuthController, jwtSecret, allowedOrigins string) *chi.Mux {
 	r := chi.NewRouter()
 	authMW := authmiddleware.NewAuthMiddleware(jwtSecret)
 
@@ -76,6 +76,7 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 		r.Get("/{pedidoID}", pedidoController.ObtenerDetalle)
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Put("/{pedidoID}/cancelar", pedidoController.Cancelar)
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Post("/{pedidoID}/prendas", prendaController.CrearVarias)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Post("/{pedidoID}/pagos", pagoController.Registrar)
 		r.Get("/{pedidoID}/historial-estados", pedidoController.ObtenerHistorialEstados)
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista, authmiddleware.RolOperario)).Put("/{pedidoID}/estado", pedidoController.ActualizarEstado)
 	})
