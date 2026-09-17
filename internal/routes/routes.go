@@ -10,7 +10,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, insumoController *controller.InsumoController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, pagoController *controller.PagoController, prendaController *controller.PrendaController, estadoPedidoController *controller.EstadoPedidoController, authController *controller.AuthController, jwtSecret, allowedOrigins string) *chi.Mux {
+func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, insumoController *controller.InsumoController, movimientoInventarioController *controller.MovimientoInventarioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, pagoController *controller.PagoController, prendaController *controller.PrendaController, estadoPedidoController *controller.EstadoPedidoController, authController *controller.AuthController, jwtSecret, allowedOrigins string) *chi.Mux {
 	r := chi.NewRouter()
 	authMW := authmiddleware.NewAuthMiddleware(jwtSecret)
 
@@ -57,6 +57,13 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 		r.Get("/{id}", insumoController.Obtener)
 		r.Put("/{id}", insumoController.Actualizar)
 		r.Delete("/{id}", insumoController.Eliminar)
+	})
+
+	r.Route("/api/movimientos-inventario", func(r chi.Router) {
+		r.Use(authMW.Authenticate)
+		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolOperario))
+
+		r.Post("/", movimientoInventarioController.Registrar)
 	})
 
 	r.Route("/api/tipos-prenda", func(r chi.Router) {

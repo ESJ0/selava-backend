@@ -39,6 +39,9 @@ func main() {
 	insumoRepo := repository.NewInsumoRepository(db)
 	insumoService := service.NewInsumoService(insumoRepo)
 	insumoController := controller.NewInsumoController(insumoService)
+	movimientoInventarioRepo := repository.NewMovimientoInventarioRepository(db)
+	movimientoInventarioService := service.NewMovimientoInventarioService(movimientoInventarioRepo)
+	movimientoInventarioController := controller.NewMovimientoInventarioController(movimientoInventarioService)
 	tipoPrendaRepo := repository.NewTipoPrendaRepository(db)
 	tipoPrendaService := service.NewTipoPrendaService(tipoPrendaRepo)
 	tipoPrendaController := controller.NewTipoPrendaController(tipoPrendaService)
@@ -61,7 +64,7 @@ func main() {
 	estadoPedidoService := service.NewEstadoPedidoService(estadoPedidoRepo)
 	estadoPedidoController := controller.NewEstadoPedidoController(estadoPedidoService)
 
-	router := routes.NewRouter(clienteController, servicioController, insumoController, tipoPrendaController, metodoPagoController, pedidoController, pagoController, prendaController, estadoPedidoController, authController, cfg.JWTSecret, cfg.AllowedOrigins)
+	router := routes.NewRouter(clienteController, servicioController, insumoController, movimientoInventarioController, tipoPrendaController, metodoPagoController, pedidoController, pagoController, prendaController, estadoPedidoController, authController, cfg.JWTSecret, cfg.AllowedOrigins)
 
 	port := cfg.Port
 	if port == "" {
