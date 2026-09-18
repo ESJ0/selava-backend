@@ -55,10 +55,10 @@ func (r *MovimientoInventarioRepository) Create(ctx context.Context, req *models
 	if req.TipoMovimiento == "entrada" {
 		nuevoStock += req.Cantidad
 	} else {
-		if req.Cantidad > stockActual {
-			return nil, ErrStockInsuficiente
+		nuevoStock, err = calcularStockSalida(stockActual, req.Cantidad)
+		if err != nil {
+			return nil, err
 		}
-		nuevoStock -= req.Cantidad
 	}
 
 	if _, err := tx.Exec(ctx,
@@ -95,4 +95,11 @@ func (r *MovimientoInventarioRepository) Create(ctx context.Context, req *models
 		return nil, fmt.Errorf("error confirmando registro de movimiento: %w", err)
 	}
 	return &movimiento, nil
+}
+
+func calcularStockSalida(stockActual, cantidad float64) (float64, error) {
+	if cantidad > stockActual {
+		return stockActual, ErrStockInsuficiente
+	}
+	return stockActual - cantidad, nil
 }
