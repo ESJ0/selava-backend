@@ -14,6 +14,7 @@ type InsumoRepository interface {
 	Create(ctx context.Context, req *models.InsumoCreateRequest) (*models.Insumo, error)
 	GetByID(ctx context.Context, id int) (*models.Insumo, error)
 	List(ctx context.Context) ([]models.Insumo, error)
+	ListLowStock(ctx context.Context) ([]models.Insumo, error)
 	Update(ctx context.Context, id int, req *models.InsumoUpdateRequest) (*models.Insumo, error)
 	Delete(ctx context.Context, id int) error
 }
@@ -40,6 +41,10 @@ func (s *InsumoService) ObtenerInsumo(ctx context.Context, id int) (*models.Insu
 
 func (s *InsumoService) ListarInsumos(ctx context.Context) ([]models.Insumo, error) {
 	return s.repo.List(ctx)
+}
+
+func (s *InsumoService) ListarInsumosBajoStock(ctx context.Context) ([]models.Insumo, error) {
+	return s.repo.ListLowStock(ctx)
 }
 
 func (s *InsumoService) ActualizarInsumo(ctx context.Context, id int, req *models.InsumoUpdateRequest) (*models.Insumo, error) {

@@ -68,6 +68,22 @@ func (r *fakeInsumoRepo) List(ctx context.Context) ([]models.Insumo, error) {
 	return out, nil
 }
 
+func (r *fakeInsumoRepo) ListLowStock(ctx context.Context) ([]models.Insumo, error) {
+	out := make([]models.Insumo, 0)
+	for _, insumo := range r.insumos {
+		if insumo.Activo && insumo.StockActual < insumo.StockMinimo {
+			out = append(out, insumo)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].StockActual == out[j].StockActual {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].StockActual < out[j].StockActual
+	})
+	return out, nil
+}
+
 func (r *fakeInsumoRepo) Update(ctx context.Context, id int, req *models.InsumoUpdateRequest) (*models.Insumo, error) {
 	insumo, ok := r.insumos[id]
 	if !ok {
@@ -190,5 +206,27 @@ func TestInsumoServiceCRUDFlow(t *testing.T) {
 	eliminado, _ := service.ObtenerInsumo(context.Background(), 2)
 	if eliminado.Activo {
 		t.Fatal("expected insumo to be inactive after delete")
+	}
+}
+
+func TestInsumoServiceListaAlertasDeStockMinimo(t *testing.T) {
+	alerta := insumoFixture(1, "Detergente")
+	alerta.StockActual = 1
+	alerta.StockMinimo = 5
+	enMinimo := insumoFixture(2, "Suavizante")
+	enMinimo.StockActual = 5
+	enMinimo.StockMinimo = 5
+	inactivo := insumoFixture(3, "Cloro")
+	inactivo.StockActual = 1
+	inactivo.StockMinimo = 5
+	inactivo.Activo = false
+
+	service := NewInsumoService(newFakeInsumoRepo(alerta, enMinimo, inactivo))
+	insumos, err := service.ListarInsumosBajoStock(context.Background())
+	if err != nil {
+		t.Fatalf("ListarInsumosBajoStock returned error: %v", err)
+	}
+	if len(insumos) != 1 || insumos[0].ID != alerta.ID {
+		t.Fatalf("unexpected low-stock alerts: %+v", insumos)
 	}
 }

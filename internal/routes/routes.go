@@ -54,6 +54,7 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 
 		r.Post("/", insumoController.Crear)
 		r.Get("/", insumoController.Listar)
+		r.Get("/alertas/stock-minimo", insumoController.ListarBajoStock)
 		r.Get("/{id}", insumoController.Obtener)
 		r.Put("/{id}", insumoController.Actualizar)
 		r.Delete("/{id}", insumoController.Eliminar)
