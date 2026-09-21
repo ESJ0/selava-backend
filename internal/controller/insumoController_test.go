@@ -74,6 +74,16 @@ func (r *fakeInsumoControllerRepository) List(ctx context.Context) ([]models.Ins
 	return out, nil
 }
 
+func (r *fakeInsumoControllerRepository) ListLowStock(ctx context.Context) ([]models.Insumo, error) {
+	out := make([]models.Insumo, 0)
+	for _, insumo := range r.insumos {
+		if insumo.Activo && insumo.StockActual < insumo.StockMinimo {
+			out = append(out, insumo)
+		}
+	}
+	return out, nil
+}
+
 func (r *fakeInsumoControllerRepository) Update(ctx context.Context, id int, req *models.InsumoUpdateRequest) (*models.Insumo, error) {
 	insumo, ok := r.insumos[id]
 	if !ok {
@@ -151,6 +161,30 @@ func TestInsumoControllerListarReturnsInsumos(t *testing.T) {
 	}
 	if len(body) != 1 || body[0].Nombre != "Detergente" {
 		t.Fatalf("unexpected response: %+v", body)
+	}
+}
+
+func TestInsumoControllerListarBajoStockReturnsAlerts(t *testing.T) {
+	alerta := insumoControllerFixture(1, "Detergente")
+	alerta.StockActual = 1
+	alerta.StockMinimo = 5
+	enMinimo := insumoControllerFixture(2, "Suavizante")
+	enMinimo.StockActual = 5
+	enMinimo.StockMinimo = 5
+	controller := newInsumoControllerForTest(alerta, enMinimo)
+	res := httptest.NewRecorder()
+
+	controller.ListarBajoStock(res, httptest.NewRequest(http.MethodGet, "/api/insumos/alertas/stock-minimo", nil))
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, res.Code)
+	}
+	var body []models.Insumo
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatalf("decoding response: %v", err)
+	}
+	if len(body) != 1 || body[0].ID != alerta.ID {
+		t.Fatalf("unexpected alert response: %+v", body)
 	}
 }
 

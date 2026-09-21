@@ -98,6 +98,40 @@ func (r *InsumoRepository) List(ctx context.Context) ([]models.Insumo, error) {
 	return insumos, nil
 }
 
+// ListLowStock devuelve los insumos activos cuyo stock actual esta por debajo
+// del minimo configurado.
+func (r *InsumoRepository) ListLowStock(ctx context.Context) ([]models.Insumo, error) {
+	const query = `
+		SELECT id, nombre, descripcion, unidad_medida, stock_actual, stock_minimo,
+		       activo, created_at, updated_at
+		FROM insumos
+		WHERE activo = TRUE AND stock_actual < stock_minimo
+		ORDER BY stock_actual ASC, id`
+
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("error listando alertas de stock minimo: %w", err)
+	}
+	defer rows.Close()
+
+	insumos := make([]models.Insumo, 0)
+	for rows.Next() {
+		var insumo models.Insumo
+		if err := rows.Scan(
+			&insumo.ID, &insumo.Nombre, &insumo.Descripcion, &insumo.UnidadMedida,
+			&insumo.StockActual, &insumo.StockMinimo, &insumo.Activo,
+			&insumo.CreatedAt, &insumo.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("error leyendo alerta de stock minimo: %w", err)
+		}
+		insumos = append(insumos, insumo)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterando alertas de stock minimo: %w", err)
+	}
+	return insumos, nil
+}
+
 func (r *InsumoRepository) Update(ctx context.Context, id int, req *models.InsumoUpdateRequest) (*models.Insumo, error) {
 	const query = `
 		UPDATE insumos SET

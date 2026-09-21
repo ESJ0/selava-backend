@@ -67,6 +67,18 @@ func (ic *InsumoController) Listar(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, insumos)
 }
 
+func (ic *InsumoController) ListarBajoStock(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+
+	insumos, err := ic.service.ListarInsumosBajoStock(ctx)
+	if err != nil {
+		ic.handleServiceError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, insumos)
+}
+
 func (ic *InsumoController) Actualizar(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
