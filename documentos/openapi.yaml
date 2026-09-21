@@ -4,9 +4,9 @@ info:
   description: >
     API del sistema de gestion de la lavanderia SeLava (ventas, inventario,
     clientes, usuarios). Este documento cubre los endpoints implementados
-    hasta el Sprint 3: autenticacion, clientes, catalogos, pedidos,
-    servicios por prenda, detalle, estados, pagos, historial y cancelacion.
-  version: "1.3.0"
+    hasta el Sprint 4: autenticacion, clientes, catalogos, pedidos,
+    servicios por prenda, detalle, estados, pagos, inventario, historial y cancelacion.
+  version: "1.4.0"
 
 servers:
   - url: http://localhost:8080
@@ -32,6 +32,10 @@ tags:
     description: Registro de pedidos de la lavanderia
   - name: Pagos
     description: Abonos, saldo pendiente e historial financiero de los pedidos
+  - name: Insumos
+    description: Catalogo y existencias de insumos de lavanderia
+  - name: Movimientos de Inventario
+    description: Entradas y salidas atomicas de existencias
   - name: Prendas
     description: Gestion de los servicios asociados a las prendas
   - name: Estados de Pedido
@@ -88,6 +92,199 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/insumos/:
+    get:
+      tags: [Insumos]
+      x-roles: [Administrador, Recepcionista, Operario]
+      summary: Lista todos los insumos
+      description: Devuelve insumos activos e inactivos con sus existencias actuales y minimas.
+      responses:
+        "200":
+          description: Listado de insumos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Insumo"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    post:
+      tags: [Insumos]
+      x-roles: [Administrador, Recepcionista]
+      summary: Crea un insumo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InsumoCreateRequest"
+      responses:
+        "201":
+          description: Insumo creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Insumo"
+        "400":
+          description: Cuerpo de la peticion invalido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "409":
+          description: Ya existe un insumo con ese nombre
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/insumos/alertas/stock-minimo:
+    get:
+      tags: [Insumos]
+      x-roles: [Administrador, Recepcionista, Operario]
+      summary: Lista insumos activos con stock bajo
+      description: Devuelve insumos cuya existencia cumple stock_actual < stock_minimo.
+      responses:
+        "200":
+          description: Insumos bajo el minimo configurado
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Insumo"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/insumos/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    get:
+      tags: [Insumos]
+      x-roles: [Administrador, Recepcionista, Operario]
+      summary: Obtiene un insumo por ID
+      responses:
+        "200":
+          description: Insumo encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Insumo"
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: Insumo no encontrado
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    put:
+      tags: [Insumos]
+      x-roles: [Administrador, Recepcionista]
+      summary: Actualiza los campos enviados de un insumo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InsumoUpdateRequest"
+      responses:
+        "200":
+          description: Insumo actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Insumo"
+        "400":
+          description: ID o cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: Insumo no encontrado
+        "409":
+          description: Ya existe un insumo con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    delete:
+      tags: [Insumos]
+      x-roles: [Administrador, Recepcionista]
+      summary: Desactiva un insumo
+      responses:
+        "204":
+          description: Insumo desactivado
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: Insumo no encontrado
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/movimientos-inventario/:
+    post:
+      tags: [Movimientos de Inventario]
+      x-roles: [Administrador, Operario]
+      summary: Registra una entrada o salida de inventario
+      description: Actualiza el stock y crea el movimiento dentro de una misma transaccion. Rechaza salidas que superen el stock disponible.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MovimientoInventarioCreateRequest"
+      responses:
+        "201":
+          description: Movimiento registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovimientoInventario"
+        "400":
+          description: Cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: Insumo no encontrado
+        "409":
+          description: Stock insuficiente para registrar la salida
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
@@ -1147,6 +1344,144 @@ components:
             $ref: "#/components/schemas/ValidationErrorResponse"
 
   schemas:
+    Insumo:
+      type: object
+      required: [id, nombre, unidad_medida, stock_actual, stock_minimo, activo, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          maxLength: 100
+          example: Detergente
+        descripcion:
+          type: string
+          maxLength: 255
+          nullable: true
+        unidad_medida:
+          type: string
+          maxLength: 20
+          example: L
+        stock_actual:
+          type: number
+          format: double
+          minimum: 0
+          example: 10
+        stock_minimo:
+          type: number
+          format: double
+          minimum: 0
+          example: 5
+        activo:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    InsumoCreateRequest:
+      type: object
+      required: [nombre, unidad_medida]
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+        descripcion:
+          type: string
+          maxLength: 255
+          nullable: true
+        unidad_medida:
+          type: string
+          maxLength: 20
+        stock_actual:
+          type: number
+          format: double
+          minimum: 0
+          default: 0
+        stock_minimo:
+          type: number
+          format: double
+          minimum: 0
+          default: 0
+
+    InsumoUpdateRequest:
+      type: object
+      description: Todos los campos son opcionales; solo se actualizan los enviados.
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+        descripcion:
+          type: string
+          maxLength: 255
+          nullable: true
+        unidad_medida:
+          type: string
+          maxLength: 20
+        stock_actual:
+          type: number
+          format: double
+          minimum: 0
+        stock_minimo:
+          type: number
+          format: double
+          minimum: 0
+        activo:
+          type: boolean
+
+    MovimientoInventario:
+      type: object
+      required: [id, insumo_id, usuario_id, tipo_movimiento, cantidad, fecha_movimiento, created_at]
+      properties:
+        id:
+          type: integer
+        insumo_id:
+          type: integer
+        usuario_id:
+          type: integer
+        tipo_movimiento:
+          type: string
+          enum: [entrada, salida]
+        cantidad:
+          type: number
+          format: double
+          exclusiveMinimum: true
+          minimum: 0
+        motivo:
+          type: string
+          maxLength: 255
+          nullable: true
+        fecha_movimiento:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    MovimientoInventarioCreateRequest:
+      type: object
+      required: [insumo_id, tipo_movimiento, cantidad]
+      properties:
+        insumo_id:
+          type: integer
+          minimum: 1
+        tipo_movimiento:
+          type: string
+          enum: [entrada, salida]
+        cantidad:
+          type: number
+          format: double
+          exclusiveMinimum: true
+          minimum: 0
+          multipleOf: 0.01
+        motivo:
+          type: string
+          maxLength: 255
+          nullable: true
+
     Pedido:
       type: object
       properties:
