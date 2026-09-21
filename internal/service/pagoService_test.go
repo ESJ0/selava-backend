@@ -11,10 +11,11 @@ import (
 )
 
 type fakePagoRepository struct {
-	created *models.PagoCreateRequest
-	err     error
-	saldo   *models.SaldoPedido
-	pagos   []models.PagoDetalle
+	created     *models.PagoCreateRequest
+	createCalls int
+	err         error
+	saldo       *models.SaldoPedido
+	pagos       []models.PagoDetalle
 }
 
 func (r *fakePagoRepository) ListByPedido(_ context.Context, _ int) ([]models.PagoDetalle, error) {
@@ -32,11 +33,69 @@ func (r *fakePagoRepository) GetSaldo(_ context.Context, _ int) (*models.SaldoPe
 }
 
 func (r *fakePagoRepository) Create(_ context.Context, pedidoID int, req *models.PagoCreateRequest, usuarioID int) (*models.PagoDetalle, error) {
+	r.createCalls++
 	if r.err != nil {
 		return nil, r.err
 	}
 	r.created = req
 	return &models.PagoDetalle{Pago: models.Pago{ID: 1, PedidoID: pedidoID, UsuarioID: usuarioID, Monto: req.Monto, Referencia: req.Referencia}}, nil
+}
+
+func TestPagoServiceRegistrarPagoRechazaMontoNoPositivo(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		monto float64
+	}{
+		{name: "cero", monto: 0},
+		{name: "negativo", monto: -1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			repo := &fakePagoRepository{}
+			service := NewPagoService(repo)
+
+			_, err := service.RegistrarPago(context.Background(), 1, &models.PagoCreateRequest{MetodoPagoID: 1, Monto: test.monto}, 1)
+			var validationErrors validator.ValidationErrors
+			if !errors.As(err, &validationErrors) {
+				t.Fatalf("expected ValidationErrors, got %v", err)
+			}
+			if repo.createCalls != 0 {
+				t.Fatalf("repository Create called %d times", repo.createCalls)
+			}
+		})
+	}
+}
+
+func TestPagoServiceRegistrarPagoRechazaIdentificadoresInvalidos(t *testing.T) {
+	tests := []struct {
+		name       string
+		pedidoID   int
+		metodoID   int
+		usuarioID  int
+		want       error
+		validation bool
+	}{
+		{name: "pedido", pedidoID: 0, metodoID: 1, usuarioID: 1, want: repository.ErrPedidoNoEncontrado},
+		{name: "usuario", pedidoID: 1, metodoID: 1, usuarioID: 0, want: repository.ErrUsuarioNoEncontrado},
+		{name: "metodo", pedidoID: 1, metodoID: 0, usuarioID: 1, validation: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			repo := &fakePagoRepository{}
+			service := NewPagoService(repo)
+			_, err := service.RegistrarPago(context.Background(), test.pedidoID, &models.PagoCreateRequest{MetodoPagoID: test.metodoID, Monto: 1}, test.usuarioID)
+			if test.validation {
+				var validationErrors validator.ValidationErrors
+				if !errors.As(err, &validationErrors) {
+					t.Fatalf("expected ValidationErrors, got %v", err)
+				}
+			} else if !errors.Is(err, test.want) {
+				t.Fatalf("expected %v, got %v", test.want, err)
+			}
+			if repo.createCalls != 0 {
+				t.Fatalf("repository Create called %d times", repo.createCalls)
+			}
+		})
+	}
 }
 
 func TestPagoServiceRegistrarPagoNormalizaReferencia(t *testing.T) {
