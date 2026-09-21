@@ -50,14 +50,13 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 
 	r.Route("/api/insumos", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
-		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista))
 
-		r.Post("/", insumoController.Crear)
-		r.Get("/", insumoController.Listar)
-		r.Get("/alertas/stock-minimo", insumoController.ListarBajoStock)
-		r.Get("/{id}", insumoController.Obtener)
-		r.Put("/{id}", insumoController.Actualizar)
-		r.Delete("/{id}", insumoController.Eliminar)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Post("/", insumoController.Crear)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista, authmiddleware.RolOperario)).Get("/", insumoController.Listar)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista, authmiddleware.RolOperario)).Get("/alertas/stock-minimo", insumoController.ListarBajoStock)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista, authmiddleware.RolOperario)).Get("/{id}", insumoController.Obtener)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Put("/{id}", insumoController.Actualizar)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Delete("/{id}", insumoController.Eliminar)
 	})
 
 	r.Route("/api/movimientos-inventario", func(r chi.Router) {
