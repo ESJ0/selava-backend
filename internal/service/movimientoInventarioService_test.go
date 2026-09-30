@@ -48,18 +48,29 @@ func TestMovimientoInventarioServiceRegistraYNormaliza(t *testing.T) {
 }
 
 func TestMovimientoInventarioServiceRechazaDatosInvalidos(t *testing.T) {
-	repo := &fakeMovimientoInventarioRepo{}
-	service := NewMovimientoInventarioService(repo)
-
-	_, err := service.RegistrarMovimiento(context.Background(), &models.MovimientoInventarioCreateRequest{
-		InsumoID: 4, TipoMovimiento: "ajuste", Cantidad: 0,
-	}, 7)
-	var validationErrors validator.ValidationErrors
-	if !errors.As(err, &validationErrors) {
-		t.Fatalf("expected ValidationErrors, got %v", err)
+	tests := []struct {
+		name string
+		req  models.MovimientoInventarioCreateRequest
+	}{
+		{name: "cantidad cero", req: models.MovimientoInventarioCreateRequest{InsumoID: 4, TipoMovimiento: "entrada", Cantidad: 0}},
+		{name: "cantidad negativa", req: models.MovimientoInventarioCreateRequest{InsumoID: 4, TipoMovimiento: "salida", Cantidad: -1}},
+		{name: "tipo invalido", req: models.MovimientoInventarioCreateRequest{InsumoID: 4, TipoMovimiento: "ajuste", Cantidad: 1}},
+		{name: "insumo invalido", req: models.MovimientoInventarioCreateRequest{InsumoID: 0, TipoMovimiento: "entrada", Cantidad: 1}},
 	}
-	if repo.createCalls != 0 {
-		t.Fatalf("expected Create not to be called, got %d calls", repo.createCalls)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			repo := &fakeMovimientoInventarioRepo{}
+			service := NewMovimientoInventarioService(repo)
+
+			_, err := service.RegistrarMovimiento(context.Background(), &test.req, 7)
+			var validationErrors validator.ValidationErrors
+			if !errors.As(err, &validationErrors) {
+				t.Fatalf("expected ValidationErrors, got %v", err)
+			}
+			if repo.createCalls != 0 {
+				t.Fatalf("expected Create not to be called, got %d calls", repo.createCalls)
+			}
+		})
 	}
 }
 
