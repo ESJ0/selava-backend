@@ -10,7 +10,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, insumoController *controller.InsumoController, movimientoInventarioController *controller.MovimientoInventarioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, pagoController *controller.PagoController, prendaController *controller.PrendaController, estadoPedidoController *controller.EstadoPedidoController, authController *controller.AuthController, jwtSecret, allowedOrigins string) *chi.Mux {
+func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, insumoController *controller.InsumoController, movimientoInventarioController *controller.MovimientoInventarioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, pagoController *controller.PagoController, prendaController *controller.PrendaController, estadoPedidoController *controller.EstadoPedidoController, authController *controller.AuthController, jwtSecret, allowedOrigins string, reporteControllers ...*controller.ReporteController) *chi.Mux {
 	r := chi.NewRouter()
 	authMW := authmiddleware.NewAuthMiddleware(jwtSecret)
 
@@ -116,6 +116,18 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 		// para mostrar nombres en el detalle y el historial del pedido).
 		r.Get("/", estadoPedidoController.Listar)
 	})
+
+	// El parametro variadico conserva compatibilidad con los consumidores del
+	// router anteriores al modulo de reportes.
+	if len(reporteControllers) > 0 && reporteControllers[0] != nil {
+		r.Route("/api/reportes", func(r chi.Router) {
+			r.Use(authMW.Authenticate)
+			r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador))
+			r.Get("/ventas", reporteControllers[0].Generar)
+			r.Get("/pedidos-por-estado", reporteControllers[0].PedidosPorEstado)
+			r.Get("/consumo-insumos", reporteControllers[0].ConsumoInsumos)
+		})
+	}
 
 	return r
 }

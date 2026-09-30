@@ -63,8 +63,15 @@ func main() {
 	estadoPedidoRepo := repository.NewEstadoPedidoRepository(db)
 	estadoPedidoService := service.NewEstadoPedidoService(estadoPedidoRepo)
 	estadoPedidoController := controller.NewEstadoPedidoController(estadoPedidoService)
+	reporteVentasRepo := repository.NewReporteVentasRepository(db)
+	reporteVentasService := service.NewReporteVentasService(reporteVentasRepo)
+	reportePedidosEstadoRepo := repository.NewReportePedidosEstadoRepository(db)
+	reportePedidosEstadoService := service.NewReportePedidosEstadoService(reportePedidosEstadoRepo)
+	reporteConsumoInsumosRepo := repository.NewReporteConsumoInsumosRepository(db)
+	reporteConsumoInsumosService := service.NewReporteConsumoInsumosService(reporteConsumoInsumosRepo)
+	reporteController := controller.NewReporteController(reporteVentasService, reportePedidosEstadoService, reporteConsumoInsumosService)
 
-	router := routes.NewRouter(clienteController, servicioController, insumoController, movimientoInventarioController, tipoPrendaController, metodoPagoController, pedidoController, pagoController, prendaController, estadoPedidoController, authController, cfg.JWTSecret, cfg.AllowedOrigins)
+	router := routes.NewRouter(clienteController, servicioController, insumoController, movimientoInventarioController, tipoPrendaController, metodoPagoController, pedidoController, pagoController, prendaController, estadoPedidoController, authController, cfg.JWTSecret, cfg.AllowedOrigins, reporteController)
 
 	port := cfg.Port
 	if port == "" {
