@@ -94,6 +94,30 @@ func (r *ServicioRepository) List(ctx context.Context) ([]models.Servicio, error
 	return servicios, nil
 }
 
+// ListActive conserva el orden por ID del listado administrativo y filtra en PostgreSQL.
+func (r *ServicioRepository) ListActive(ctx context.Context) ([]models.ServicioPublico, error) {
+	const query = `
+		SELECT id, nombre, descripcion, precio_base, tiempo_estimado_horas
+		FROM servicios WHERE activo = TRUE ORDER BY id`
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("error listando catalogo publico: %w", err)
+	}
+	defer rows.Close()
+	servicios := make([]models.ServicioPublico, 0)
+	for rows.Next() {
+		var servicio models.ServicioPublico
+		if err := rows.Scan(&servicio.ID, &servicio.Nombre, &servicio.Descripcion, &servicio.PrecioBase, &servicio.TiempoEstimadoHoras); err != nil {
+			return nil, fmt.Errorf("error leyendo servicio publico: %w", err)
+		}
+		servicios = append(servicios, servicio)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterando catalogo publico: %w", err)
+	}
+	return servicios, nil
+}
+
 func (r *ServicioRepository) Update(ctx context.Context, id int, req *models.ServicioUpdateRequest) (*models.Servicio, error) {
 	const query = `
 		UPDATE servicios SET

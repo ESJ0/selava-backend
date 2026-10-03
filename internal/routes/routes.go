@@ -25,6 +25,7 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 	})
 
 	r.Post("/api/auth/login", authController.Login)
+	r.Get("/api/public/servicios", servicioController.ListarPublicos)
 
 	r.Route("/api/clientes", func(r chi.Router) {
 		r.Use(authMW.Authenticate)

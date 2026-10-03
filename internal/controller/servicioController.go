@@ -65,6 +65,20 @@ func (sc *ServicioController) Listar(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, servicios)
 }
 
+func (sc *ServicioController) ListarPublicos(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+	servicios, err := sc.service.ListarCatalogoPublico(ctx)
+	if err != nil {
+		sc.handleServiceError(w, err)
+		return
+	}
+	if servicios == nil {
+		servicios = []models.ServicioPublico{}
+	}
+	respondJSON(w, http.StatusOK, servicios)
+}
+
 func (sc *ServicioController) Actualizar(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()

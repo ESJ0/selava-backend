@@ -14,6 +14,15 @@ type Servicio struct {
 	UpdatedAt           time.Time `json:"updated_at"`
 }
 
+// ServicioPublico contiene exclusivamente los datos del catalogo para clientes.
+type ServicioPublico struct {
+	ID                  int     `json:"id"`
+	Nombre              string  `json:"nombre"`
+	Descripcion         *string `json:"descripcion"`
+	PrecioBase          float64 `json:"precio_base"`
+	TiempoEstimadoHoras *int    `json:"tiempo_estimado_horas"`
+}
+
 type ServicioCreateRequest struct {
 	Nombre              string  `json:"nombre"`
 	Descripcion         *string `json:"descripcion"`
