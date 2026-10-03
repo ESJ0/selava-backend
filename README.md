@@ -12,3 +12,22 @@ go run .\cmd\api
 ```
 
 La API queda en `http://localhost:8080` y el health check en `http://localhost:8080/health`. El seed es idempotente y actualiza la contraseña del administrador local desde las variables configuradas. Para detener PostgreSQL sin borrar datos: `docker compose down`.
+
+## Catalogo publico (SEL-93)
+
+`GET /api/public/servicios` no requiere JWT ni cabecera `Authorization`. Devuelve
+un arreglo de servicios activos, ordenado por ID ascendente (igual que el listado
+administrativo), con `id`, `nombre`, `descripcion`, `precio_base` y
+`tiempo_estimado_horas`. Los dos campos opcionales pueden ser `null`. Los precios
+se consultan en PostgreSQL; no se incluyen timestamps ni datos administrativos.
+Un catalogo vacio responde `200 []`. Las rutas `/api/servicios` conservan JWT y
+permisos de Administrador/Recepcionista. Contrato completo: `documentos/openapi.yaml`.
+
+Para desarrollar ambos frontends, configura en el `.env` local del backend:
+`ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174`. El portal cliente
+utiliza el puerto 5174; CORS mantiene una lista explicita de origenes permitidos.
+
+Pruebas: `go test ./...`. Para incluir PostgreSQL, configura
+`SELAVA_TEST_DATABASE_URL` apuntando a una base cuyo nombre termine en `_test`.
+La infraestructura existente crea un esquema aislado por prueba, aplica las
+migraciones reales y lo elimina al terminar; no usa la base de desarrollo.

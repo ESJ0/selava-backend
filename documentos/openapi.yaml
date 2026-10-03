@@ -6,7 +6,7 @@ info:
     clientes, usuarios). Este documento cubre los endpoints implementados
     autenticacion, clientes, catalogos, pedidos, servicios por prenda,
     detalle, estados, pagos, inventario, reportes, historial y cancelacion.
-  version: "1.7.0"
+  version: "1.8.0"
 
 servers:
   - url: http://localhost:8080
@@ -905,6 +905,37 @@ paths:
           $ref: "#/components/responses/NoAutorizado"
         "404":
           $ref: "#/components/responses/ClienteNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/public/servicios:
+    get:
+      tags: [Servicios]
+      summary: Catalogo publico de servicios activos y precios
+      description: >
+        No requiere autenticacion. Devuelve exclusivamente servicios con activo=true,
+        ordenados por ID ascendente como el listado administrativo. Los precios
+        proceden de PostgreSQL. Un catalogo sin servicios activos devuelve 200 y [].
+      security: []
+      responses:
+        "200":
+          description: Servicios activos; arreglo vacio si no hay ninguno
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServicioPublico"
+              examples:
+                catalogo:
+                  value:
+                    - id: 1
+                      nombre: Lavado en seco
+                      descripcion: Limpieza especializada para prendas delicadas
+                      precio_base: 35.5
+                      tiempo_estimado_horas: 24
+                vacio:
+                  value: []
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
@@ -1913,6 +1944,32 @@ components:
           maxLength: 255
         activo:
           type: boolean
+
+    ServicioPublico:
+      type: object
+      additionalProperties: false
+      required: [id, nombre, descripcion, precio_base, tiempo_estimado_horas]
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: Lavado en seco
+        descripcion:
+          type: string
+          nullable: true
+          example: Limpieza especializada para prendas delicadas
+        precio_base:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          example: 35.5
+        tiempo_estimado_horas:
+          type: integer
+          nullable: true
+          example: 24
 
     Servicio:
       type: object
