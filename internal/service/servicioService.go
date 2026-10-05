@@ -14,6 +14,7 @@ type ServicioRepository interface {
 	Create(ctx context.Context, req *models.ServicioCreateRequest) (*models.Servicio, error)
 	GetByID(ctx context.Context, id int) (*models.Servicio, error)
 	List(ctx context.Context) ([]models.Servicio, error)
+	ListActive(ctx context.Context) ([]models.ServicioPublico, error)
 	Update(ctx context.Context, id int, req *models.ServicioUpdateRequest) (*models.Servicio, error)
 	Delete(ctx context.Context, id int) error
 }
@@ -44,6 +45,10 @@ func (s *ServicioService) ObtenerServicio(ctx context.Context, id int) (*models.
 
 func (s *ServicioService) ListarServicios(ctx context.Context) ([]models.Servicio, error) {
 	return s.repo.List(ctx)
+}
+
+func (s *ServicioService) ListarCatalogoPublico(ctx context.Context) ([]models.ServicioPublico, error) {
+	return s.repo.ListActive(ctx)
 }
 
 func (s *ServicioService) ActualizarServicio(ctx context.Context, id int, req *models.ServicioUpdateRequest) (*models.Servicio, error) {

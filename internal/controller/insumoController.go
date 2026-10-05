@@ -12,120 +12,123 @@ import (
 	"github.com/ESJ0/selava-backend/internal/validator"
 )
 
-type ServicioController struct {
-	service *service.ServicioService
+type InsumoController struct {
+	service *service.InsumoService
 }
 
-func NewServicioController(service *service.ServicioService) *ServicioController {
-	return &ServicioController{service: service}
+func NewInsumoController(service *service.InsumoService) *InsumoController {
+	return &InsumoController{service: service}
 }
 
-func (sc *ServicioController) Crear(w http.ResponseWriter, r *http.Request) {
+func (ic *InsumoController) Crear(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
 
-	var req models.ServicioCreateRequest
+	var req models.InsumoCreateRequest
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "cuerpo de la peticion invalido")
 		return
 	}
-	servicio, err := sc.service.CrearServicio(ctx, &req)
+	insumo, err := ic.service.CrearInsumo(ctx, &req)
 	if err != nil {
-		sc.handleServiceError(w, err)
+		ic.handleServiceError(w, err)
 		return
 	}
-	respondJSON(w, http.StatusCreated, servicio)
+	respondJSON(w, http.StatusCreated, insumo)
 }
 
-func (sc *ServicioController) Obtener(w http.ResponseWriter, r *http.Request) {
+func (ic *InsumoController) Obtener(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
+
 	id, err := parseID(r)
 	if err != nil || id <= 0 {
 		respondError(w, http.StatusBadRequest, "id invalido")
 		return
 	}
-	servicio, err := sc.service.ObtenerServicio(ctx, id)
+	insumo, err := ic.service.ObtenerInsumo(ctx, id)
 	if err != nil {
-		sc.handleServiceError(w, err)
+		ic.handleServiceError(w, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, servicio)
+	respondJSON(w, http.StatusOK, insumo)
 }
 
-func (sc *ServicioController) Listar(w http.ResponseWriter, r *http.Request) {
+func (ic *InsumoController) Listar(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
-	servicios, err := sc.service.ListarServicios(ctx)
+
+	insumos, err := ic.service.ListarInsumos(ctx)
 	if err != nil {
-		sc.handleServiceError(w, err)
+		ic.handleServiceError(w, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, servicios)
+	respondJSON(w, http.StatusOK, insumos)
 }
 
-func (sc *ServicioController) ListarPublicos(w http.ResponseWriter, r *http.Request) {
+func (ic *InsumoController) ListarBajoStock(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
-	servicios, err := sc.service.ListarCatalogoPublico(ctx)
+
+	insumos, err := ic.service.ListarInsumosBajoStock(ctx)
 	if err != nil {
-		sc.handleServiceError(w, err)
+		ic.handleServiceError(w, err)
 		return
 	}
-	if servicios == nil {
-		servicios = []models.ServicioPublico{}
-	}
-	respondJSON(w, http.StatusOK, servicios)
+	respondJSON(w, http.StatusOK, insumos)
 }
 
-func (sc *ServicioController) Actualizar(w http.ResponseWriter, r *http.Request) {
+func (ic *InsumoController) Actualizar(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
+
 	id, err := parseID(r)
 	if err != nil || id <= 0 {
 		respondError(w, http.StatusBadRequest, "id invalido")
 		return
 	}
-	var req models.ServicioUpdateRequest
+
+	var req models.InsumoUpdateRequest
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "cuerpo de la peticion invalido")
 		return
 	}
-	servicio, err := sc.service.ActualizarServicio(ctx, id, &req)
+	insumo, err := ic.service.ActualizarInsumo(ctx, id, &req)
 	if err != nil {
-		sc.handleServiceError(w, err)
+		ic.handleServiceError(w, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, servicio)
+	respondJSON(w, http.StatusOK, insumo)
 }
 
-func (sc *ServicioController) Eliminar(w http.ResponseWriter, r *http.Request) {
+func (ic *InsumoController) Eliminar(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
+
 	id, err := parseID(r)
 	if err != nil || id <= 0 {
 		respondError(w, http.StatusBadRequest, "id invalido")
 		return
 	}
-	if err := sc.service.EliminarServicio(ctx, id); err != nil {
-		sc.handleServiceError(w, err)
+	if err := ic.service.EliminarInsumo(ctx, id); err != nil {
+		ic.handleServiceError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusNoContent, nil)
 }
 
-func (sc *ServicioController) handleServiceError(w http.ResponseWriter, err error) {
+func (ic *InsumoController) handleServiceError(w http.ResponseWriter, err error) {
 	var validationErrors validator.ValidationErrors
 	if errors.As(err, &validationErrors) {
 		respondJSON(w, http.StatusUnprocessableEntity, map[string]any{"errores": validationErrors})
 		return
 	}
 	switch {
-	case errors.Is(err, repository.ErrServicioNoEncontrado):
+	case errors.Is(err, repository.ErrInsumoNoEncontrado):
 		respondError(w, http.StatusNotFound, err.Error())
-	case errors.Is(err, repository.ErrNombreServicioEnUso):
+	case errors.Is(err, repository.ErrNombreInsumoEnUso):
 		respondError(w, http.StatusConflict, err.Error())
 	default:
 		respondError(w, http.StatusInternalServerError, "error interno del servidor")

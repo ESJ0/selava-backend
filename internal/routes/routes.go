@@ -10,7 +10,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, prendaController *controller.PrendaController, estadoPedidoController *controller.EstadoPedidoController, authController *controller.AuthController, jwtSecret, allowedOrigins string) *chi.Mux {
+func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, insumoController *controller.InsumoController, movimientoInventarioController *controller.MovimientoInventarioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, pagoController *controller.PagoController, prendaController *controller.PrendaController, estadoPedidoController *controller.EstadoPedidoController, authController *controller.AuthController, jwtSecret, allowedOrigins string, reporteControllers ...*controller.ReporteController) *chi.Mux {
 	r := chi.NewRouter()
 	authMW := authmiddleware.NewAuthMiddleware(jwtSecret)
 
@@ -25,6 +25,7 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 	})
 
 	r.Post("/api/auth/login", authController.Login)
+	r.Get("/api/public/servicios", servicioController.ListarPublicos)
 
 	r.Route("/api/clientes", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
@@ -46,6 +47,24 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 		r.Get("/{id}", servicioController.Obtener)
 		r.Put("/{id}", servicioController.Actualizar)
 		r.Delete("/{id}", servicioController.Eliminar)
+	})
+
+	r.Route("/api/insumos", func(r chi.Router) {
+		r.Use(authMW.Authenticate)
+
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Post("/", insumoController.Crear)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista, authmiddleware.RolOperario)).Get("/", insumoController.Listar)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista, authmiddleware.RolOperario)).Get("/alertas/stock-minimo", insumoController.ListarBajoStock)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista, authmiddleware.RolOperario)).Get("/{id}", insumoController.Obtener)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Put("/{id}", insumoController.Actualizar)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Delete("/{id}", insumoController.Eliminar)
+	})
+
+	r.Route("/api/movimientos-inventario", func(r chi.Router) {
+		r.Use(authMW.Authenticate)
+		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolOperario))
+
+		r.Post("/", movimientoInventarioController.Registrar)
 	})
 
 	r.Route("/api/tipos-prenda", func(r chi.Router) {
@@ -76,6 +95,9 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 		r.Get("/{pedidoID}", pedidoController.ObtenerDetalle)
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Put("/{pedidoID}/cancelar", pedidoController.Cancelar)
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Post("/{pedidoID}/prendas", prendaController.CrearVarias)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Post("/{pedidoID}/pagos", pagoController.Registrar)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Get("/{pedidoID}/pagos", pagoController.ObtenerHistorial)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Get("/{pedidoID}/saldo", pagoController.ObtenerSaldo)
 		r.Get("/{pedidoID}/historial-estados", pedidoController.ObtenerHistorialEstados)
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista, authmiddleware.RolOperario)).Put("/{pedidoID}/estado", pedidoController.ActualizarEstado)
 	})
@@ -95,6 +117,18 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 		// para mostrar nombres en el detalle y el historial del pedido).
 		r.Get("/", estadoPedidoController.Listar)
 	})
+
+	// El parametro variadico conserva compatibilidad con los consumidores del
+	// router anteriores al modulo de reportes.
+	if len(reporteControllers) > 0 && reporteControllers[0] != nil {
+		r.Route("/api/reportes", func(r chi.Router) {
+			r.Use(authMW.Authenticate)
+			r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador))
+			r.Get("/ventas", reporteControllers[0].Generar)
+			r.Get("/pedidos-por-estado", reporteControllers[0].PedidosPorEstado)
+			r.Get("/consumo-insumos", reporteControllers[0].ConsumoInsumos)
+		})
+	}
 
 	return r
 }

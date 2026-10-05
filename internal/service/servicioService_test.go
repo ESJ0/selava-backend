@@ -73,6 +73,20 @@ func (r *fakeServicioRepo) List(ctx context.Context) ([]models.Servicio, error) 
 	return out, nil
 }
 
+func (r *fakeServicioRepo) ListActive(ctx context.Context) ([]models.ServicioPublico, error) {
+	servicios, err := r.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]models.ServicioPublico, 0)
+	for _, s := range servicios {
+		if s.Activo {
+			out = append(out, models.ServicioPublico{ID: s.ID, Nombre: s.Nombre, Descripcion: s.Descripcion, PrecioBase: s.PrecioBase, TiempoEstimadoHoras: s.TiempoEstimadoHoras})
+		}
+	}
+	return out, nil
+}
+
 func (r *fakeServicioRepo) Update(ctx context.Context, id int, req *models.ServicioUpdateRequest) (*models.Servicio, error) {
 	s, ok := r.servicios[id]
 	if !ok {

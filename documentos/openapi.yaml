@@ -4,9 +4,9 @@ info:
   description: >
     API del sistema de gestion de la lavanderia SeLava (ventas, inventario,
     clientes, usuarios). Este documento cubre los endpoints implementados
-    hasta el Sprint 3: autenticacion, clientes, catalogos, pedidos,
-    servicios por prenda, detalle, estados, historial y cancelacion.
-  version: "1.2.0"
+    autenticacion, clientes, catalogos, pedidos, servicios por prenda,
+    detalle, estados, pagos, inventario, reportes, historial y cancelacion.
+  version: "1.8.0"
 
 servers:
   - url: http://localhost:8080
@@ -30,10 +30,18 @@ tags:
     description: Gestion del catalogo de metodos de pago aceptados
   - name: Pedidos
     description: Registro de pedidos de la lavanderia
+  - name: Pagos
+    description: Abonos, saldo pendiente e historial financiero de los pedidos
+  - name: Insumos
+    description: Catalogo y existencias de insumos de lavanderia
+  - name: Movimientos de Inventario
+    description: Entradas y salidas atomicas de existencias
   - name: Prendas
     description: Gestion de los servicios asociados a las prendas
   - name: Estados de Pedido
     description: Catalogo y flujo de estados de los pedidos
+  - name: Reportes
+    description: Indicadores financieros agregados para administracion
 
 paths:
   /health:
@@ -86,6 +94,199 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/insumos/:
+    get:
+      tags: [Insumos]
+      x-roles: [Administrador, Recepcionista, Operario]
+      summary: Lista todos los insumos
+      description: Devuelve insumos activos e inactivos con sus existencias actuales y minimas.
+      responses:
+        "200":
+          description: Listado de insumos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Insumo"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    post:
+      tags: [Insumos]
+      x-roles: [Administrador, Recepcionista]
+      summary: Crea un insumo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InsumoCreateRequest"
+      responses:
+        "201":
+          description: Insumo creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Insumo"
+        "400":
+          description: Cuerpo de la peticion invalido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "409":
+          description: Ya existe un insumo con ese nombre
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/insumos/alertas/stock-minimo:
+    get:
+      tags: [Insumos]
+      x-roles: [Administrador, Recepcionista, Operario]
+      summary: Lista insumos activos con stock bajo
+      description: Devuelve insumos cuya existencia cumple stock_actual < stock_minimo.
+      responses:
+        "200":
+          description: Insumos bajo el minimo configurado
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Insumo"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/insumos/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    get:
+      tags: [Insumos]
+      x-roles: [Administrador, Recepcionista, Operario]
+      summary: Obtiene un insumo por ID
+      responses:
+        "200":
+          description: Insumo encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Insumo"
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: Insumo no encontrado
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    put:
+      tags: [Insumos]
+      x-roles: [Administrador, Recepcionista]
+      summary: Actualiza los campos enviados de un insumo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InsumoUpdateRequest"
+      responses:
+        "200":
+          description: Insumo actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Insumo"
+        "400":
+          description: ID o cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: Insumo no encontrado
+        "409":
+          description: Ya existe un insumo con ese nombre
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    delete:
+      tags: [Insumos]
+      x-roles: [Administrador, Recepcionista]
+      summary: Desactiva un insumo
+      responses:
+        "204":
+          description: Insumo desactivado
+        "400":
+          description: ID invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: Insumo no encontrado
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/movimientos-inventario/:
+    post:
+      tags: [Movimientos de Inventario]
+      x-roles: [Administrador, Operario]
+      summary: Registra una entrada o salida de inventario
+      description: Actualiza el stock y crea el movimiento dentro de una misma transaccion. Rechaza salidas que superen el stock disponible.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MovimientoInventarioCreateRequest"
+      responses:
+        "201":
+          description: Movimiento registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovimientoInventario"
+        "400":
+          description: Cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: Insumo no encontrado
+        "409":
+          description: Stock insuficiente para registrar la salida
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
@@ -216,6 +417,100 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/pedidos/{pedidoID}/pagos:
+    parameters:
+      - name: pedidoID
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      tags: [Pagos]
+      x-roles: [Administrador, Recepcionista]
+      summary: Registra un pago o abono para un pedido
+      description: Impide pagos en pedidos cancelados, sin saldo o cuyo monto exceda el saldo pendiente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PagoCreateRequest"
+      responses:
+        "201":
+          description: Pago registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PagoDetalle"
+        "400":
+          description: ID o cuerpo de la peticion invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: El pedido o metodo de pago no existe
+        "409":
+          description: Pedido cancelado, sin saldo o monto superior al saldo pendiente
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+    get:
+      tags: [Pagos]
+      x-roles: [Administrador, Recepcionista]
+      summary: Consulta el historial de pagos de un pedido
+      responses:
+        "200":
+          description: Pagos ordenados del mas antiguo al mas reciente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PagoDetalle"
+        "400":
+          description: ID de pedido invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: El pedido no existe o esta inactivo
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/pedidos/{pedidoID}/saldo:
+    get:
+      tags: [Pagos]
+      x-roles: [Administrador, Recepcionista]
+      summary: Consulta el saldo pendiente de un pedido
+      parameters:
+        - name: pedidoID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Resumen del saldo del pedido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaldoPedido"
+        "400":
+          description: ID de pedido invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          description: El pedido no existe o esta inactivo
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
@@ -613,6 +908,37 @@ paths:
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
+  /api/public/servicios:
+    get:
+      tags: [Servicios]
+      summary: Catalogo publico de servicios activos y precios
+      description: >
+        No requiere autenticacion. Devuelve exclusivamente servicios con activo=true,
+        ordenados por ID ascendente como el listado administrativo. Los precios
+        proceden de PostgreSQL. Un catalogo sin servicios activos devuelve 200 y [].
+      security: []
+      responses:
+        "200":
+          description: Servicios activos; arreglo vacio si no hay ninguno
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServicioPublico"
+              examples:
+                catalogo:
+                  value:
+                    - id: 1
+                      nombre: Lavado en seco
+                      descripcion: Limpieza especializada para prendas delicadas
+                      precio_base: 35.5
+                      tiempo_estimado_horas: 24
+                vacio:
+                  value: []
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
   /api/servicios:
     get:
       tags: [Servicios]
@@ -983,6 +1309,121 @@ paths:
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
+  /api/reportes/ventas:
+    get:
+      tags: [Reportes]
+      x-roles: [Administrador]
+      summary: Genera el reporte de ventas por periodo
+      description: >
+        Agrega los pagos cuya fecha de registro se encuentra dentro del
+        periodo solicitado. Ambas fechas son inclusivas. Una venta corresponde
+        a un pedido distinto que recibio al menos un pago durante el periodo.
+      parameters:
+        - name: fecha_inicio
+          in: query
+          required: true
+          description: Primer dia incluido en el reporte.
+          schema:
+            type: string
+            format: date
+          example: "2026-09-01"
+        - name: fecha_fin
+          in: query
+          required: true
+          description: Ultimo dia incluido en el reporte.
+          schema:
+            type: string
+            format: date
+          example: "2026-09-30"
+      responses:
+        "200":
+          description: Reporte generado, aunque el periodo no contenga pagos.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReporteVentas"
+        "400":
+          description: Falta una fecha, su formato no es YYYY-MM-DD o el periodo esta invertido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/reportes/pedidos-por-estado:
+    get:
+      tags: [Reportes]
+      x-roles: [Administrador]
+      summary: Cuenta los pedidos por su estado actual
+      description: >
+        Devuelve el total de pedidos activos agrupado por el estado actual.
+        Incluye todos los estados del catalogo, aun cuando no tengan pedidos,
+        ordenados segun el flujo configurado.
+      responses:
+        "200":
+          description: Conteo actual de pedidos por estado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportePedidosEstado"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/reportes/consumo-insumos:
+    get:
+      tags: [Reportes]
+      x-roles: [Administrador]
+      summary: Genera el reporte de consumo de insumos por periodo
+      description: >
+        Suma exclusivamente los movimientos de inventario de tipo salida cuya
+        fecha se encuentra dentro del periodo solicitado. Ambas fechas son
+        inclusivas y el consumo se agrupa por insumo.
+      parameters:
+        - name: fecha_inicio
+          in: query
+          required: true
+          description: Primer dia incluido en el reporte.
+          schema:
+            type: string
+            format: date
+          example: "2026-09-01"
+        - name: fecha_fin
+          in: query
+          required: true
+          description: Ultimo dia incluido en el reporte.
+          schema:
+            type: string
+            format: date
+          example: "2026-09-30"
+      responses:
+        "200":
+          description: Reporte generado, aunque el periodo no contenga salidas.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReporteConsumoInsumos"
+        "400":
+          description: Falta una fecha, su formato no es YYYY-MM-DD o el periodo esta invertido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1051,6 +1492,144 @@ components:
             $ref: "#/components/schemas/ValidationErrorResponse"
 
   schemas:
+    Insumo:
+      type: object
+      required: [id, nombre, unidad_medida, stock_actual, stock_minimo, activo, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          maxLength: 100
+          example: Detergente
+        descripcion:
+          type: string
+          maxLength: 255
+          nullable: true
+        unidad_medida:
+          type: string
+          maxLength: 20
+          example: L
+        stock_actual:
+          type: number
+          format: double
+          minimum: 0
+          example: 10
+        stock_minimo:
+          type: number
+          format: double
+          minimum: 0
+          example: 5
+        activo:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    InsumoCreateRequest:
+      type: object
+      required: [nombre, unidad_medida]
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+        descripcion:
+          type: string
+          maxLength: 255
+          nullable: true
+        unidad_medida:
+          type: string
+          maxLength: 20
+        stock_actual:
+          type: number
+          format: double
+          minimum: 0
+          default: 0
+        stock_minimo:
+          type: number
+          format: double
+          minimum: 0
+          default: 0
+
+    InsumoUpdateRequest:
+      type: object
+      description: Todos los campos son opcionales; solo se actualizan los enviados.
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+        descripcion:
+          type: string
+          maxLength: 255
+          nullable: true
+        unidad_medida:
+          type: string
+          maxLength: 20
+        stock_actual:
+          type: number
+          format: double
+          minimum: 0
+        stock_minimo:
+          type: number
+          format: double
+          minimum: 0
+        activo:
+          type: boolean
+
+    MovimientoInventario:
+      type: object
+      required: [id, insumo_id, usuario_id, tipo_movimiento, cantidad, fecha_movimiento, created_at]
+      properties:
+        id:
+          type: integer
+        insumo_id:
+          type: integer
+        usuario_id:
+          type: integer
+        tipo_movimiento:
+          type: string
+          enum: [entrada, salida]
+        cantidad:
+          type: number
+          format: double
+          exclusiveMinimum: true
+          minimum: 0
+        motivo:
+          type: string
+          maxLength: 255
+          nullable: true
+        fecha_movimiento:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    MovimientoInventarioCreateRequest:
+      type: object
+      required: [insumo_id, tipo_movimiento, cantidad]
+      properties:
+        insumo_id:
+          type: integer
+          minimum: 1
+        tipo_movimiento:
+          type: string
+          enum: [entrada, salida]
+        cantidad:
+          type: number
+          format: double
+          exclusiveMinimum: true
+          minimum: 0
+          multipleOf: 0.01
+        motivo:
+          type: string
+          maxLength: 255
+          nullable: true
+
     Pedido:
       type: object
       properties:
@@ -1366,6 +1945,32 @@ components:
         activo:
           type: boolean
 
+    ServicioPublico:
+      type: object
+      additionalProperties: false
+      required: [id, nombre, descripcion, precio_base, tiempo_estimado_horas]
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: Lavado en seco
+        descripcion:
+          type: string
+          nullable: true
+          example: Limpieza especializada para prendas delicadas
+        precio_base:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          example: 35.5
+        tiempo_estimado_horas:
+          type: integer
+          nullable: true
+          example: 24
+
     Servicio:
       type: object
       properties:
@@ -1496,6 +2101,50 @@ components:
           type: string
           format: date-time
 
+    PagoCreateRequest:
+      type: object
+      required: [metodo_pago_id, monto]
+      properties:
+        metodo_pago_id:
+          type: integer
+          minimum: 1
+        monto:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          multipleOf: 0.01
+        referencia:
+          type: string
+          maxLength: 100
+          nullable: true
+
+    SaldoPedido:
+      type: object
+      required: [pedido_id, total, total_pagado, saldo_pendiente]
+      properties:
+        pedido_id:
+          type: integer
+        total:
+          type: number
+          format: double
+        total_pagado:
+          type: number
+          format: double
+        saldo_pendiente:
+          type: number
+          format: double
+
+    PagoUsuario:
+      type: object
+      properties:
+        id:
+          type: integer
+        nombre:
+          type: string
+        apellido:
+          type: string
+
     PagoDetalle:
       description: Pago registrado junto con el metodo de pago utilizado.
       allOf:
@@ -1504,6 +2153,209 @@ components:
           properties:
             metodo_pago:
               $ref: "#/components/schemas/MetodoPago"
+            usuario:
+              $ref: "#/components/schemas/PagoUsuario"
+
+    ReporteVentas:
+      type: object
+      required:
+        - fecha_inicio
+        - fecha_fin
+        - cantidad_ventas
+        - cantidad_pagos
+        - total_ventas
+        - ventas_por_dia
+        - ventas_por_metodo_pago
+      properties:
+        fecha_inicio:
+          type: string
+          format: date
+        fecha_fin:
+          type: string
+          format: date
+        cantidad_ventas:
+          type: integer
+          minimum: 0
+          description: Cantidad de pedidos distintos con pagos en el periodo.
+        cantidad_pagos:
+          type: integer
+          minimum: 0
+        total_ventas:
+          type: number
+          format: double
+          minimum: 0
+          description: Suma de los pagos registrados en el periodo.
+        ventas_por_dia:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReporteVentasPorDia"
+        ventas_por_metodo_pago:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReporteVentasPorMetodoPago"
+      example:
+        fecha_inicio: "2026-09-01"
+        fecha_fin: "2026-09-30"
+        cantidad_ventas: 2
+        cantidad_pagos: 3
+        total_ventas: 21.25
+        ventas_por_dia:
+          - fecha: "2026-09-01"
+            cantidad_ventas: 1
+            cantidad_pagos: 1
+            total_ventas: 5
+        ventas_por_metodo_pago:
+          - metodo_pago: { id: 1, nombre: Efectivo, activo: true }
+            cantidad_ventas: 2
+            cantidad_pagos: 2
+            total_ventas: 15
+
+    ReporteVentasPorDia:
+      type: object
+      required: [fecha, cantidad_ventas, cantidad_pagos, total_ventas]
+      properties:
+        fecha:
+          type: string
+          format: date
+        cantidad_ventas:
+          type: integer
+          minimum: 0
+        cantidad_pagos:
+          type: integer
+          minimum: 0
+        total_ventas:
+          type: number
+          format: double
+          minimum: 0
+
+    ReporteVentasPorMetodoPago:
+      type: object
+      required: [metodo_pago, cantidad_ventas, cantidad_pagos, total_ventas]
+      properties:
+        metodo_pago:
+          $ref: "#/components/schemas/MetodoPago"
+        cantidad_ventas:
+          type: integer
+          minimum: 0
+        cantidad_pagos:
+          type: integer
+          minimum: 0
+        total_ventas:
+          type: number
+          format: double
+          minimum: 0
+
+    ReportePedidosEstado:
+      type: object
+      required: [total_pedidos, pedidos_por_estado]
+      properties:
+        total_pedidos:
+          type: integer
+          minimum: 0
+        pedidos_por_estado:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportePedidosEstadoDetalle"
+      example:
+        total_pedidos: 8
+        pedidos_por_estado:
+          - estado:
+              id: 1
+              nombre: Recibido
+              orden: 1
+              created_at: "2026-09-07T15:00:00Z"
+              updated_at: "2026-09-07T15:00:00Z"
+            cantidad_pedidos: 3
+          - estado:
+              id: 2
+              nombre: Rackeado
+              orden: 2
+              created_at: "2026-09-07T15:00:00Z"
+              updated_at: "2026-09-07T15:00:00Z"
+            cantidad_pedidos: 5
+          - estado:
+              id: 3
+              nombre: Entregado
+              orden: 3
+              created_at: "2026-09-07T15:00:00Z"
+              updated_at: "2026-09-07T15:00:00Z"
+            cantidad_pedidos: 0
+
+    ReportePedidosEstadoDetalle:
+      type: object
+      required: [estado, cantidad_pedidos]
+      properties:
+        estado:
+          $ref: "#/components/schemas/EstadoPedido"
+        cantidad_pedidos:
+          type: integer
+          minimum: 0
+
+    ReporteConsumoInsumos:
+      type: object
+      required:
+        - fecha_inicio
+        - fecha_fin
+        - cantidad_movimientos
+        - total_consumido
+        - consumo_por_insumo
+      properties:
+        fecha_inicio:
+          type: string
+          format: date
+        fecha_fin:
+          type: string
+          format: date
+        cantidad_movimientos:
+          type: integer
+          minimum: 0
+          description: Cantidad de movimientos de salida incluidos.
+        total_consumido:
+          type: number
+          format: double
+          minimum: 0
+          description: >
+            Suma numerica de todas las salidas. Para interpretar unidades
+            distintas debe utilizarse el desglose por insumo.
+        consumo_por_insumo:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReporteConsumoInsumoDetalle"
+      example:
+        fecha_inicio: "2026-09-01"
+        fecha_fin: "2026-09-30"
+        cantidad_movimientos: 3
+        total_consumido: 8.75
+        consumo_por_insumo:
+          - insumo_id: 1
+            nombre: Detergente
+            unidad_medida: L
+            cantidad_movimientos: 2
+            cantidad_consumida: 6.25
+          - insumo_id: 2
+            nombre: Cloro
+            unidad_medida: L
+            cantidad_movimientos: 1
+            cantidad_consumida: 2.5
+
+    ReporteConsumoInsumoDetalle:
+      type: object
+      required: [insumo_id, nombre, unidad_medida, cantidad_movimientos, cantidad_consumida]
+      properties:
+        insumo_id:
+          type: integer
+          minimum: 1
+        nombre:
+          type: string
+        unidad_medida:
+          type: string
+        cantidad_movimientos:
+          type: integer
+          minimum: 1
+        cantidad_consumida:
+          type: number
+          format: double
+          minimum: 0
 
     Cliente:
       type: object
