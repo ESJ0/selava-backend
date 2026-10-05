@@ -6,7 +6,7 @@ info:
     clientes, usuarios). Este documento cubre los endpoints implementados
     autenticacion, clientes, catalogos, pedidos, servicios por prenda,
     detalle, estados, pagos, inventario, reportes, historial y cancelacion.
-  version: "1.8.0"
+  version: "1.9.0"
 
 servers:
   - url: http://localhost:8080
@@ -291,6 +291,52 @@ paths:
           $ref: "#/components/responses/ErrorInterno"
 
   /api/pedidos:
+    get:
+      tags: [Pedidos]
+      x-roles: [Administrador, Recepcionista, Operario]
+      summary: Lista pedidos con filtros y paginacion
+      description: >
+        Incluye pedidos activos, entregados y cancelados. La busqueda admite un ID,
+        SLV-0001, nombre/apellido o telefono del cliente. Los filtros se combinan.
+        Las fechas corresponden a fecha_recibido en horario de Guatemala (UTC-6)
+        e incluyen completos los dias desde y hasta. El orden es estable por fecha e ID.
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 100 }
+        - name: estado_id
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 2147483647 }
+        - name: fecha_desde
+          in: query
+          schema: { type: string, format: date }
+        - name: fecha_hasta
+          in: query
+          schema: { type: string, format: date }
+        - name: pagina
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 1000000, default: 1 }
+        - name: limite
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: orden
+          in: query
+          schema: { type: string, enum: [recientes, antiguos], default: recientes }
+      responses:
+        "200":
+          description: Pagina de pedidos; pedidos es un arreglo vacio si no hay resultados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PedidoListResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
     post:
       tags: [Pedidos]
       summary: Crea un pedido junto con sus prendas
@@ -1673,6 +1719,58 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    PedidoListResponse:
+      type: object
+      required: [pedidos, total, pagina, limite]
+      properties:
+        pedidos:
+          type: array
+          items:
+            $ref: "#/components/schemas/PedidoResumen"
+        total:
+          type: integer
+          minimum: 0
+        pagina:
+          type: integer
+          minimum: 1
+        limite:
+          type: integer
+          minimum: 1
+          maximum: 100
+
+    PedidoResumen:
+      type: object
+      required: [id, fecha_recibido, total, activo, cliente, estado_actual]
+      properties:
+        id:
+          type: integer
+        fecha_recibido:
+          type: string
+          format: date-time
+        fecha_entrega_estimada:
+          type: string
+          format: date-time
+        total:
+          type: number
+          format: double
+        activo:
+          type: boolean
+        cliente:
+          type: object
+          required: [id, nombre, apellido, telefono]
+          properties:
+            id: { type: integer }
+            nombre: { type: string }
+            apellido: { type: string }
+            telefono: { type: string }
+        estado_actual:
+          type: object
+          required: [id, nombre, orden]
+          properties:
+            id: { type: integer }
+            nombre: { type: string }
+            orden: { type: integer }
 
     PedidoDetalle:
       description: Pedido con todas sus relaciones de cliente, prendas, estado actual y pagos.

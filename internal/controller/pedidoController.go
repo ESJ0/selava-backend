@@ -23,6 +23,22 @@ func NewPedidoController(service *service.PedidoService) *PedidoController {
 	return &PedidoController{service: service}
 }
 
+func (pc *PedidoController) Listar(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+	query := r.URL.Query()
+	result, err := pc.service.ListarPedidos(ctx, models.PedidoListRequest{
+		Buscar: query.Get("q"), EstadoID: query.Get("estado_id"),
+		FechaDesde: query.Get("fecha_desde"), FechaHasta: query.Get("fecha_hasta"),
+		Pagina: query.Get("pagina"), Limite: query.Get("limite"), Orden: query.Get("orden"),
+	})
+	if err != nil {
+		pc.handleServiceError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, result)
+}
+
 func (pc *PedidoController) Crear(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()

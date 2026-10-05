@@ -12,6 +12,7 @@ import (
 // PedidoRepository es la interfaz que necesita el service para poder
 // probarse con un fake, en vez de depender de *repository.PedidoRepository.
 type PedidoRepository interface {
+	List(ctx context.Context, filter models.PedidoListFilter) (*models.PedidoListResponse, error)
 	Create(ctx context.Context, req *models.PedidoCreateRequest, usuarioID int) (*models.PedidoConPrendas, error)
 	UpdateEstado(ctx context.Context, pedidoID int, req *models.PedidoEstadoUpdateRequest, usuarioID int) (*models.PedidoEstadoHistorial, error)
 	GetHistorialEstados(ctx context.Context, pedidoID int) ([]models.PedidoEstadoHistorialDetalle, error)
@@ -25,6 +26,14 @@ type PedidoService struct {
 
 func NewPedidoService(repo PedidoRepository) *PedidoService {
 	return &PedidoService{repo: repo}
+}
+
+func (s *PedidoService) ListarPedidos(ctx context.Context, req models.PedidoListRequest) (*models.PedidoListResponse, error) {
+	filter, errs := validator.ParsePedidoList(req)
+	if errs.HasErrors() {
+		return nil, errs
+	}
+	return s.repo.List(ctx, filter)
 }
 
 func (s *PedidoService) CrearPedido(ctx context.Context, req *models.PedidoCreateRequest, usuarioID int) (*models.PedidoConPrendas, error) {

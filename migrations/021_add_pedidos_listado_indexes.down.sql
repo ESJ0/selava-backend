@@ -1,0 +1,2 @@
+DROP INDEX idx_pedidos_estado_fecha_recibido_id;
+DROP INDEX idx_pedidos_fecha_recibido_id;

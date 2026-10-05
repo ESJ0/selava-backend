@@ -30,6 +30,10 @@ func newPedidoControllerForTest(err error) *PedidoController {
 	return NewPedidoController(servicelayer.NewPedidoService(repo))
 }
 
+func (r *fakePedidoRepository) List(_ context.Context, filter models.PedidoListFilter) (*models.PedidoListResponse, error) {
+	return &models.PedidoListResponse{Pedidos: []models.PedidoResumen{}, Pagina: filter.Pagina, Limite: filter.Limite}, r.err
+}
+
 func (r *fakePedidoRepository) Create(ctx context.Context, req *models.PedidoCreateRequest, usuarioID int) (*models.PedidoConPrendas, error) {
 	if r.err != nil {
 		return nil, r.err

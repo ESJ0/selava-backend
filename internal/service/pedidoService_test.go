@@ -27,6 +27,10 @@ func newFakePedidoRepo() *fakePedidoRepo {
 	return &fakePedidoRepo{nextPedidoID: 1, nextPrendaID: 1}
 }
 
+func (r *fakePedidoRepo) List(_ context.Context, filter models.PedidoListFilter) (*models.PedidoListResponse, error) {
+	return &models.PedidoListResponse{Pedidos: []models.PedidoResumen{}, Pagina: filter.Pagina, Limite: filter.Limite}, r.err
+}
+
 func (r *fakePedidoRepo) Create(ctx context.Context, req *models.PedidoCreateRequest, usuarioID int) (*models.PedidoConPrendas, error) {
 	r.createCalls++
 	r.lastUsuario = usuarioID

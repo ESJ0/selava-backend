@@ -90,6 +90,7 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 
 	r.Route("/api/pedidos", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista, authmiddleware.RolOperario)).Get("/", pedidoController.Listar)
 
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Post("/", pedidoController.Crear)
 		r.Get("/{pedidoID}", pedidoController.ObtenerDetalle)

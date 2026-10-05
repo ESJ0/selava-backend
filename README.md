@@ -13,6 +13,15 @@ go run .\cmd\api
 
 La API queda en `http://localhost:8080` y el health check en `http://localhost:8080/health`. El seed es idempotente y actualiza la contraseña del administrador local desde las variables configuradas. Para detener PostgreSQL sin borrar datos: `docker compose down`.
 
+## Listado de pedidos
+
+`GET /api/pedidos/` requiere JWT de Administrador, Recepcionista u Operario.
+Devuelve `{ pedidos, total, pagina, limite }`, incluidos los pedidos cancelados.
+Admite `q` (número, nombre o teléfono), `estado_id`, `fecha_desde`, `fecha_hasta`,
+`pagina`, `limite` (máximo 100) y `orden` (`recientes` o `antiguos`). Las fechas
+de recepción incluyen ambos días en horario de Guatemala; pueden usarse por separado.
+La migración 021 añade los índices del listado.
+
 ## Catalogo publico (SEL-93)
 
 `GET /api/public/servicios` no requiere JWT ni cabecera `Authorization`. Devuelve
