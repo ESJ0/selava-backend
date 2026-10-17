@@ -10,7 +10,16 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
+// NewRouter conserva el contrato usado antes de incorporar el portal cliente.
 func NewRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, insumoController *controller.InsumoController, movimientoInventarioController *controller.MovimientoInventarioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, pagoController *controller.PagoController, prendaController *controller.PrendaController, estadoPedidoController *controller.EstadoPedidoController, authController *controller.AuthController, jwtSecret, allowedOrigins string, reporteControllers ...*controller.ReporteController) *chi.Mux {
+	return newRouter(clienteController, servicioController, insumoController, movimientoInventarioController, tipoPrendaController, metodoPagoController, pedidoController, pagoController, prendaController, estadoPedidoController, authController, nil, jwtSecret, allowedOrigins, reporteControllers...)
+}
+
+func NewRouterWithClienteAuth(clienteController *controller.ClienteController, servicioController *controller.ServicioController, insumoController *controller.InsumoController, movimientoInventarioController *controller.MovimientoInventarioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, pagoController *controller.PagoController, prendaController *controller.PrendaController, estadoPedidoController *controller.EstadoPedidoController, authController *controller.AuthController, clienteAuthController *controller.ClienteAuthController, jwtSecret, allowedOrigins string, reporteControllers ...*controller.ReporteController) *chi.Mux {
+	return newRouter(clienteController, servicioController, insumoController, movimientoInventarioController, tipoPrendaController, metodoPagoController, pedidoController, pagoController, prendaController, estadoPedidoController, authController, clienteAuthController, jwtSecret, allowedOrigins, reporteControllers...)
+}
+
+func newRouter(clienteController *controller.ClienteController, servicioController *controller.ServicioController, insumoController *controller.InsumoController, movimientoInventarioController *controller.MovimientoInventarioController, tipoPrendaController *controller.TipoPrendaController, metodoPagoController *controller.MetodoPagoController, pedidoController *controller.PedidoController, pagoController *controller.PagoController, prendaController *controller.PrendaController, estadoPedidoController *controller.EstadoPedidoController, authController *controller.AuthController, clienteAuthController *controller.ClienteAuthController, jwtSecret, allowedOrigins string, reporteControllers ...*controller.ReporteController) *chi.Mux {
 	r := chi.NewRouter()
 	authMW := authmiddleware.NewAuthMiddleware(jwtSecret)
 
@@ -25,6 +34,14 @@ func NewRouter(clienteController *controller.ClienteController, servicioControll
 	})
 
 	r.Post("/api/auth/login", authController.Login)
+	if clienteAuthController != nil {
+		r.Post("/api/auth/clientes/registro", clienteAuthController.Registrar)
+		r.Post("/api/auth/clientes/login", clienteAuthController.Login)
+		r.Route("/api/cliente", func(r chi.Router) {
+			r.Use(authMW.AuthenticateCliente)
+			r.Get("/me", clienteAuthController.Me)
+		})
+	}
 	r.Get("/api/public/servicios", servicioController.ListarPublicos)
 
 	r.Route("/api/clientes", func(r chi.Router) {

@@ -38,8 +38,14 @@ utiliza el puerto 5174; CORS mantiene una lista explicita de origenes permitidos
 
 El modelo de identidad para el portal cliente y su relacion opcional 1:1 con
 `clientes` se documenta en `documentos/modelo-cuenta-cliente.md`. La migracion
-022 crea la tabla `cuentas_cliente`; los endpoints publicos de registro y login
-se construyen de forma separada sobre este contrato.
+022 crea la tabla `cuentas_cliente`.
+
+El portal dispone de `POST /api/auth/clientes/registro` y
+`POST /api/auth/clientes/login`. El registro crea perfil y cuenta en una sola
+transaccion; el login devuelve un JWT con `actor=cliente` y `cliente_id`. Estos
+tokens no son aceptados por las rutas del panel interno. `GET /api/cliente/me`
+es una ruta privada minima para validar la sesion del cliente. El contrato
+completo se encuentra en `documentos/openapi.yaml`.
 
 Pruebas: `go test ./...`. Para incluir PostgreSQL, configura
 `SELAVA_TEST_DATABASE_URL` apuntando a una base cuyo nombre termine en `_test`.
