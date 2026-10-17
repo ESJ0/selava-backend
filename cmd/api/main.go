@@ -60,6 +60,9 @@ func main() {
 	usuarioRepo := repository.NewUsuarioRepository(db)
 	authService := service.NewAuthService(usuarioRepo, cfg.JWTSecret)
 	authController := controller.NewAuthController(authService)
+	cuentaClienteRepo := repository.NewCuentaClienteRepository(db)
+	clienteAuthService := service.NewClienteAuthService(cuentaClienteRepo, cfg.JWTSecret)
+	clienteAuthController := controller.NewClienteAuthController(clienteAuthService)
 	estadoPedidoRepo := repository.NewEstadoPedidoRepository(db)
 	estadoPedidoService := service.NewEstadoPedidoService(estadoPedidoRepo)
 	estadoPedidoController := controller.NewEstadoPedidoController(estadoPedidoService)
@@ -71,7 +74,7 @@ func main() {
 	reporteConsumoInsumosService := service.NewReporteConsumoInsumosService(reporteConsumoInsumosRepo)
 	reporteController := controller.NewReporteController(reporteVentasService, reportePedidosEstadoService, reporteConsumoInsumosService)
 
-	router := routes.NewRouter(clienteController, servicioController, insumoController, movimientoInventarioController, tipoPrendaController, metodoPagoController, pedidoController, pagoController, prendaController, estadoPedidoController, authController, cfg.JWTSecret, cfg.AllowedOrigins, reporteController)
+	router := routes.NewRouterWithClienteAuth(clienteController, servicioController, insumoController, movimientoInventarioController, tipoPrendaController, metodoPagoController, pedidoController, pagoController, prendaController, estadoPedidoController, authController, clienteAuthController, cfg.JWTSecret, cfg.AllowedOrigins, reporteController)
 
 	port := cfg.Port
 	if port == "" {
