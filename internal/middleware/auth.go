@@ -12,6 +12,7 @@ import (
 type contextKey string
 
 const claimsContextKey contextKey = "auth_claims"
+const clienteClaimsContextKey contextKey = "cliente_auth_claims"
 
 const (
 	RolAdministrador = 1
@@ -50,6 +51,27 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 	})
 }
 
+// AuthenticateCliente acepta exclusivamente tokens emitidos para el portal de
+// clientes. Un JWT valido del panel interno no puede cruzar esta frontera.
+func (m *AuthMiddleware) AuthenticateCliente(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenString, ok := bearerToken(r.Header.Get("Authorization"))
+		if !ok {
+			respondError(w, http.StatusUnauthorized, "token de autenticacion requerido")
+			return
+		}
+
+		claims, err := auth.ValidateClienteToken(m.jwtSecret, tokenString)
+		if err != nil {
+			respondError(w, http.StatusUnauthorized, "token invalido o expirado")
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), clienteClaimsContextKey, claims)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 func (m *AuthMiddleware) RequireRoles(allowedRoles ...int) func(http.Handler) http.Handler {
 	allowed := make(map[int]struct{}, len(allowedRoles))
 	for _, rolID := range allowedRoles {
@@ -78,6 +100,11 @@ func (m *AuthMiddleware) RequireRoles(allowedRoles ...int) func(http.Handler) ht
 
 func ClaimsFromContext(ctx context.Context) (*auth.Claims, bool) {
 	claims, ok := ctx.Value(claimsContextKey).(*auth.Claims)
+	return claims, ok
+}
+
+func ClienteClaimsFromContext(ctx context.Context) (*auth.ClienteClaims, bool) {
+	claims, ok := ctx.Value(clienteClaimsContextKey).(*auth.ClienteClaims)
 	return claims, ok
 }
 
