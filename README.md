@@ -47,6 +47,11 @@ tokens no son aceptados por las rutas del panel interno. `GET /api/cliente/me`
 es una ruta privada minima para validar la sesion del cliente. El contrato
 completo se encuentra en `documentos/openapi.yaml`.
 
+Las garantias y pruebas de aislamiento entre sesiones de clientes se documentan
+en `documentos/pruebas-seguridad-clientes.md`. Los tokens del portal no pueden
+consultar las rutas administrativas de clientes, pedidos, saldos ni pagos, y la
+identidad de `/api/cliente/me` siempre proviene del JWT.
+
 Pruebas: `go test ./...`. Para incluir PostgreSQL, configura
 `SELAVA_TEST_DATABASE_URL` apuntando a una base cuyo nombre termine en `_test`.
 La infraestructura existente crea un esquema aislado por prueba, aplica las
