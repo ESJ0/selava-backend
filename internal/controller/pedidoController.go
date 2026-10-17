@@ -39,6 +39,27 @@ func (pc *PedidoController) Listar(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, result)
 }
 
+func (pc *PedidoController) ListarPropios(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+	claims, ok := middleware.ClienteClaimsFromContext(r.Context())
+	if !ok || claims.ClienteID <= 0 {
+		respondError(w, http.StatusUnauthorized, "token de autenticacion requerido")
+		return
+	}
+	query := r.URL.Query()
+	result, err := pc.service.ListarPedidosCliente(ctx, claims.ClienteID, models.PedidoListRequest{
+		EstadoID: query.Get("estado_id"), FechaDesde: query.Get("fecha_desde"),
+		FechaHasta: query.Get("fecha_hasta"), Pagina: query.Get("pagina"),
+		Limite: query.Get("limite"), Orden: query.Get("orden"),
+	})
+	if err != nil {
+		pc.handleServiceError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, result)
+}
+
 func (pc *PedidoController) Crear(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
@@ -112,6 +133,27 @@ func (pc *PedidoController) ObtenerHistorialEstados(w http.ResponseWriter, r *ht
 	respondJSON(w, http.StatusOK, historial)
 }
 
+func (pc *PedidoController) ObtenerHistorialEstadosPropio(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+	pedidoID, err := strconv.Atoi(chi.URLParam(r, "pedidoID"))
+	if err != nil || pedidoID <= 0 {
+		respondError(w, http.StatusBadRequest, "id de pedido invalido")
+		return
+	}
+	claims, ok := middleware.ClienteClaimsFromContext(r.Context())
+	if !ok || claims.ClienteID <= 0 {
+		respondError(w, http.StatusUnauthorized, "token de autenticacion requerido")
+		return
+	}
+	historial, err := pc.service.ObtenerHistorialEstadosCliente(ctx, pedidoID, claims.ClienteID)
+	if err != nil {
+		pc.handleServiceError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, historial)
+}
+
 func (pc *PedidoController) ObtenerDetalle(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
@@ -123,6 +165,27 @@ func (pc *PedidoController) ObtenerDetalle(w http.ResponseWriter, r *http.Reques
 	}
 
 	detalle, err := pc.service.ObtenerDetallePedido(ctx, pedidoID)
+	if err != nil {
+		pc.handleServiceError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, detalle)
+}
+
+func (pc *PedidoController) ObtenerDetallePropio(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+	pedidoID, err := strconv.Atoi(chi.URLParam(r, "pedidoID"))
+	if err != nil || pedidoID <= 0 {
+		respondError(w, http.StatusBadRequest, "id de pedido invalido")
+		return
+	}
+	claims, ok := middleware.ClienteClaimsFromContext(r.Context())
+	if !ok || claims.ClienteID <= 0 {
+		respondError(w, http.StatusUnauthorized, "token de autenticacion requerido")
+		return
+	}
+	detalle, err := pc.service.ObtenerDetallePedidoCliente(ctx, pedidoID, claims.ClienteID)
 	if err != nil {
 		pc.handleServiceError(w, err)
 		return

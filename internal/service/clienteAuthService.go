@@ -17,6 +17,7 @@ var ErrCredencialesClienteInvalidas = errors.New("email o contrasena incorrectos
 type cuentaClienteRepository interface {
 	Registrar(context.Context, *models.ClienteRegistroRequest, string) (*models.ClienteRegistrado, error)
 	GetByEmail(context.Context, string) (*models.ClienteRegistrado, error)
+	GetClienteActivoByID(context.Context, int) (*models.Cliente, error)
 	MarcarUltimoAcceso(context.Context, int) error
 }
 
@@ -67,6 +68,21 @@ func (s *ClienteAuthService) Login(ctx context.Context, req *models.ClienteLogin
 		return "", err
 	}
 	return token, nil
+}
+
+func (s *ClienteAuthService) ObtenerPerfil(ctx context.Context, clienteID int) (*models.ClienteResponse, error) {
+	if clienteID <= 0 {
+		return nil, ErrCredencialesClienteInvalidas
+	}
+	cliente, err := s.repo.GetClienteActivoByID(ctx, clienteID)
+	if err != nil {
+		if errors.Is(err, repository.ErrCuentaClienteNoEncontrada) {
+			return nil, ErrCredencialesClienteInvalidas
+		}
+		return nil, err
+	}
+	response := cliente.ToResponse()
+	return &response, nil
 }
 
 func normalizarRegistroCliente(req *models.ClienteRegistroRequest) {

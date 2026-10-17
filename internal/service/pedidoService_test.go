@@ -16,6 +16,7 @@ type fakePedidoRepo struct {
 	nextPrendaID int
 	createCalls  int
 	lastUsuario  int
+	lastCliente  int
 
 	// err, si no es nil, se devuelve en vez de crear el pedido; simula
 	// errores que en produccion vendrian de un constraint de la base de
@@ -28,6 +29,7 @@ func newFakePedidoRepo() *fakePedidoRepo {
 }
 
 func (r *fakePedidoRepo) List(_ context.Context, filter models.PedidoListFilter) (*models.PedidoListResponse, error) {
+	r.lastCliente = filter.ClienteID
 	return &models.PedidoListResponse{Pedidos: []models.PedidoResumen{}, Pagina: filter.Pagina, Limite: filter.Limite}, r.err
 }
 
@@ -97,6 +99,11 @@ func (r *fakePedidoRepo) GetHistorialEstados(_ context.Context, pedidoID int) ([
 	}}, nil
 }
 
+func (r *fakePedidoRepo) GetHistorialEstadosCliente(ctx context.Context, pedidoID, clienteID int) ([]models.PedidoEstadoHistorialDetalle, error) {
+	r.lastCliente = clienteID
+	return r.GetHistorialEstados(ctx, pedidoID)
+}
+
 func (r *fakePedidoRepo) GetDetalle(_ context.Context, pedidoID int) (*models.PedidoDetalle, error) {
 	if r.err != nil {
 		return nil, r.err
@@ -108,6 +115,11 @@ func (r *fakePedidoRepo) GetDetalle(_ context.Context, pedidoID int) (*models.Pe
 		EstadoActual: models.EstadoPedido{ID: 1, Nombre: "Recibido"},
 		Pagos:        []models.PagoDetalle{{Pago: models.Pago{ID: 3, PedidoID: pedidoID, Monto: 25}}},
 	}, nil
+}
+
+func (r *fakePedidoRepo) GetDetalleCliente(ctx context.Context, pedidoID, clienteID int) (*models.PedidoDetalle, error) {
+	r.lastCliente = clienteID
+	return r.GetDetalle(ctx, pedidoID)
 }
 
 func (r *fakePedidoRepo) Cancelar(_ context.Context, pedidoID, usuarioID int) (*models.Pedido, error) {
@@ -226,6 +238,31 @@ func TestPedidoServiceObtenerDetallePedidoRechazaIDInvalido(t *testing.T) {
 	_, err := service.ObtenerDetallePedido(context.Background(), 0)
 	if !errors.Is(err, repository.ErrPedidoNoEncontrado) {
 		t.Fatalf("expected ErrPedidoNoEncontrado, got %v", err)
+	}
+}
+
+func TestPedidoServiceListaPedidosDelClienteYSanitizaRespuesta(t *testing.T) {
+	repo := newFakePedidoRepo()
+	service := NewPedidoService(repo)
+	result, err := service.ListarPedidosCliente(context.Background(), 42, models.PedidoListRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repo.lastCliente != 42 || result.Pedidos == nil || result.Pagina != 1 || result.Limite != 20 {
+		t.Fatalf("resultado=%+v cliente=%d", result, repo.lastCliente)
+	}
+}
+
+func TestPedidoServiceRechazaIdentidadClienteInvalida(t *testing.T) {
+	service := NewPedidoService(newFakePedidoRepo())
+	if _, err := service.ListarPedidosCliente(context.Background(), 0, models.PedidoListRequest{}); !errors.Is(err, repository.ErrClienteNoEncontrado) {
+		t.Fatalf("listado: %v", err)
+	}
+	if _, err := service.ObtenerDetallePedidoCliente(context.Background(), 1, 0); !errors.Is(err, repository.ErrClienteNoEncontrado) {
+		t.Fatalf("detalle: %v", err)
+	}
+	if _, err := service.ObtenerHistorialEstadosCliente(context.Background(), 1, 0); !errors.Is(err, repository.ErrClienteNoEncontrado) {
+		t.Fatalf("historial: %v", err)
 	}
 }
 

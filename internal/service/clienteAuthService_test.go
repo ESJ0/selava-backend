@@ -31,6 +31,13 @@ func (f *fakeCuentaClienteRepository) GetByEmail(_ context.Context, email string
 	return f.registro, f.err
 }
 
+func (f *fakeCuentaClienteRepository) GetClienteActivoByID(_ context.Context, _ int) (*models.Cliente, error) {
+	if f.registro == nil {
+		return nil, f.err
+	}
+	return &f.registro.Cliente, f.err
+}
+
 func (f *fakeCuentaClienteRepository) MarcarUltimoAcceso(_ context.Context, cuentaID int) error {
 	f.ultimoAcceso = cuentaID
 	return f.ultimoAccErr
@@ -100,5 +107,15 @@ func TestClienteAuthServiceLoginNoRevelaCuentaInexistenteOInactiva(t *testing.T)
 				t.Fatalf("error = %v", err)
 			}
 		})
+	}
+}
+
+func TestClienteAuthServiceObtienePerfilParaRestaurarSesion(t *testing.T) {
+	repo := &fakeCuentaClienteRepository{registro: &models.ClienteRegistrado{
+		Cliente: models.Cliente{ID: 42, Nombre: "Ana", Apellido: "Lopez", Activo: true},
+	}}
+	perfil, err := NewClienteAuthService(repo, "secret").ObtenerPerfil(context.Background(), 42)
+	if err != nil || perfil.ID != 42 || perfil.Nombre != "Ana" {
+		t.Fatalf("perfil=%+v err=%v", perfil, err)
 	}
 }

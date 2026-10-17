@@ -16,6 +16,7 @@ import (
 type clienteAuthService interface {
 	Registrar(context.Context, *models.ClienteRegistroRequest) (*models.ClienteRegistrado, error)
 	Login(context.Context, *models.ClienteLoginRequest) (string, error)
+	ObtenerPerfil(context.Context, int) (*models.ClienteResponse, error)
 }
 
 type ClienteAuthController struct {
@@ -68,12 +69,19 @@ func (c *ClienteAuthController) Login(w http.ResponseWriter, r *http.Request) {
 // demuestra que la identidad se obtiene del JWT, nunca de un ID enviado por el
 // cliente en URL o body.
 func (c *ClienteAuthController) Me(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
 	claims, ok := middleware.ClienteClaimsFromContext(r.Context())
 	if !ok {
 		respondError(w, http.StatusUnauthorized, "token de autenticacion requerido")
 		return
 	}
-	respondJSON(w, http.StatusOK, map[string]int{"cliente_id": claims.ClienteID})
+	cliente, err := c.service.ObtenerPerfil(ctx, claims.ClienteID)
+	if err != nil {
+		c.handleError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, cliente)
 }
 
 func (c *ClienteAuthController) handleError(w http.ResponseWriter, err error) {
