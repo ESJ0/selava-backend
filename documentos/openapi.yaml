@@ -6,7 +6,7 @@ info:
     clientes, usuarios). Este documento cubre los endpoints implementados
     autenticacion, clientes, catalogos, pedidos, servicios por prenda,
     detalle, estados, pagos, inventario, reportes, historial y cancelacion.
-  version: "1.9.0"
+  version: "1.10.0"
 
 servers:
   - url: http://localhost:8080
@@ -96,6 +96,100 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           $ref: "#/components/responses/ErrorInterno"
+
+  /api/auth/clientes/registro:
+    post:
+      tags: [Autenticacion]
+      summary: Registra el perfil y la cuenta de un cliente
+      description: Crea ambas entidades dentro de una misma transaccion.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClienteRegistroRequest"
+      responses:
+        "201":
+          description: Cliente y cuenta creados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClienteRegistroResponse"
+        "400":
+          description: Cuerpo de la peticion invalido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: El correo ya pertenece a otro cliente o cuenta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/auth/clientes/login:
+    post:
+      tags: [Autenticacion]
+      summary: Inicia sesion en el portal de clientes
+      description: Emite un JWT con actor cliente y el claim cliente_id.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClienteLoginRequest"
+      responses:
+        "200":
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Cuerpo de la peticion invalido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Email o contrasena incorrectos, o cuenta inactiva
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/cliente/me:
+    get:
+      tags: [Autenticacion]
+      summary: Comprueba la sesion privada del cliente
+      description: Requiere un JWT de cliente; no acepta tokens del panel interno.
+      x-token-actor: cliente
+      responses:
+        "200":
+          description: Identidad cargada desde el token
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cliente_id]
+                properties:
+                  cliente_id:
+                    type: integer
+                    minimum: 1
+                    example: 42
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
 
   /api/insumos/:
     get:
@@ -1477,8 +1571,9 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >
-        Token emitido por /api/auth/login. Debe enviarse en el header
-        Authorization con el formato Bearer <token>.
+        Token emitido por /api/auth/login o /api/auth/clientes/login. Debe
+        enviarse en el header Authorization con el formato Bearer <token>.
+        Los tokens de usuario interno y cliente no son intercambiables.
 
   responses:
     ErrorInterno:
@@ -2536,6 +2631,87 @@ components:
           maxLength: 255
         activo:
           type: boolean
+
+    ClienteRegistroRequest:
+      type: object
+      required: [nombre, apellido, telefono, email, password]
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          example: Maria
+        apellido:
+          type: string
+          maxLength: 100
+          example: Gonzalez
+        telefono:
+          type: string
+          maxLength: 20
+          example: "+502 5555-1234"
+        email:
+          type: string
+          format: email
+          maxLength: 150
+          example: maria.gonzalez@example.com
+        direccion:
+          type: string
+          maxLength: 255
+        password:
+          type: string
+          format: password
+          minLength: 8
+          description: Debe tener al menos 8 caracteres y no superar 72 bytes.
+          writeOnly: true
+
+    ClienteLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 150
+        password:
+          type: string
+          format: password
+          writeOnly: true
+
+    CuentaCliente:
+      type: object
+      required: [id, cliente_id, email, activo, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+        cliente_id:
+          type: integer
+        email:
+          type: string
+          format: email
+        activo:
+          type: boolean
+        email_verificado_at:
+          type: string
+          format: date-time
+          nullable: true
+        ultimo_acceso_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ClienteRegistroResponse:
+      type: object
+      required: [cliente, cuenta]
+      properties:
+        cliente:
+          $ref: "#/components/schemas/Cliente"
+        cuenta:
+          $ref: "#/components/schemas/CuentaCliente"
 
     LoginRequest:
       type: object

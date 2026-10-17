@@ -49,10 +49,10 @@ necesita una fila artificial en `roles`. Esta separación evita duplicar el
 nombre, teléfono y estado del cliente en `usuarios`, y evita que permisos del
 panel administrativo se otorguen accidentalmente al portal público.
 
-Cuando se implemente la emisión de JWT para el portal, el token debe identificar
-explícitamente el tipo de actor y el cliente, por ejemplo con claims
-`actor=cliente` y `cliente_id`. Los tokens actuales de empleados conservan
-`usuario_id` y `rol_id`.
+El JWT del portal identifica explícitamente el tipo de actor y el cliente con
+los claims `actor=cliente` y `cliente_id`. Los tokens de empleados usan
+`actor=usuario`, `usuario_id` y `rol_id`; ambos tipos se validan por separado y
+no son intercambiables.
 
 ## Reglas de seguridad y ciclo de vida
 
@@ -72,15 +72,16 @@ explícitamente el tipo de actor y el cliente, por ejemplo con claims
 
 ## Flujo de registro previsto para la landing page
 
-El endpoint público de registro deberá ejecutar una sola transacción:
+El endpoint público de registro ejecuta una sola transacción:
 
 1. Validar y normalizar los datos del perfil y de acceso.
-2. Crear o vincular el registro de `clientes` de acuerdo con la política de
-   negocio acordada.
+2. Crear un registro nuevo en `clientes`. Si el correo ya existe, responder con
+   conflicto sin vincular automáticamente un perfil creado por recepción.
 3. Generar el hash bcrypt de la contraseña.
 4. Crear `cuentas_cliente` con el `cliente_id` obtenido.
 5. Confirmar la transacción únicamente si ambas escrituras fueron exitosas.
 
-Esta tarea define el modelo persistente y su relación. Los endpoints públicos
-de registro, login, verificación y recuperación se implementan sobre este
-contrato sin exponer las rutas administrativas de `/api/clientes`.
+`POST /api/auth/clientes/registro`, `POST /api/auth/clientes/login` y la ruta
+privada de comprobación `GET /api/cliente/me` se implementan sobre este contrato
+sin exponer las rutas administrativas de `/api/clientes`. La verificación y la
+recuperación de contraseña quedan como flujos posteriores.
