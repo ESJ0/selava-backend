@@ -36,6 +36,11 @@ Para desarrollar ambos frontends, configura en el `.env` local del backend:
 `ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174`. El portal cliente
 utiliza el puerto 5174; CORS mantiene una lista explicita de origenes permitidos.
 
+El modelo de identidad para el portal cliente y su relacion opcional 1:1 con
+`clientes` se documenta en `documentos/modelo-cuenta-cliente.md`. La migracion
+022 crea la tabla `cuentas_cliente`; los endpoints publicos de registro y login
+se construyen de forma separada sobre este contrato.
+
 Pruebas: `go test ./...`. Para incluir PostgreSQL, configura
 `SELAVA_TEST_DATABASE_URL` apuntando a una base cuyo nombre termine en `_test`.
 La infraestructura existente crea un esquema aislado por prueba, aplica las
