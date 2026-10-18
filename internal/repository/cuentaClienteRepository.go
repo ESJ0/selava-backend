@@ -121,6 +121,32 @@ func (r *CuentaClienteRepository) GetByEmail(ctx context.Context, email string) 
 	return &resultado, nil
 }
 
+// GetClienteActivoByID carga el perfil asociado a una cuenta activa. Se usa
+// para restaurar sesiones sin confiar en datos de perfil almacenados por el
+// navegador.
+func (r *CuentaClienteRepository) GetClienteActivoByID(ctx context.Context, clienteID int) (*models.Cliente, error) {
+	var cliente models.Cliente
+	err := r.db.QueryRow(ctx, `
+		SELECT c.id, c.nombre, c.apellido, c.telefono,
+		       COALESCE(c.email, ''), COALESCE(c.direccion, ''),
+		       c.activo, c.created_at, c.updated_at
+		FROM cuentas_cliente cc
+		JOIN clientes c ON c.id = cc.cliente_id
+		WHERE cc.cliente_id = $1 AND cc.activo = TRUE AND c.activo = TRUE
+	`, clienteID).Scan(
+		&cliente.ID, &cliente.Nombre, &cliente.Apellido, &cliente.Telefono,
+		&cliente.Email, &cliente.Direccion, &cliente.Activo,
+		&cliente.CreatedAt, &cliente.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrCuentaClienteNoEncontrada
+		}
+		return nil, fmt.Errorf("obteniendo perfil de cuenta cliente: %w", err)
+	}
+	return &cliente, nil
+}
+
 func (r *CuentaClienteRepository) MarcarUltimoAcceso(ctx context.Context, cuentaID int) error {
 	tag, err := r.db.Exec(ctx, `
 		UPDATE cuentas_cliente

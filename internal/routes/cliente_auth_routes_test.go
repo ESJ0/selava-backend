@@ -25,6 +25,10 @@ func (fakeClienteAuthRoutesService) Login(context.Context, *models.ClienteLoginR
 	return "jwt-cliente", nil
 }
 
+func (fakeClienteAuthRoutesService) ObtenerPerfil(context.Context, int) (*models.ClienteResponse, error) {
+	return &models.ClienteResponse{ID: 42, Nombre: "Ana", Apellido: "Lopez", Activo: true}, nil
+}
+
 func clienteAuthRouter() http.Handler {
 	clienteAuthController := controller.NewClienteAuthController(fakeClienteAuthRoutesService{})
 	return NewRouterWithClienteAuth(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, clienteAuthController, "route-client-secret", "")
@@ -65,7 +69,7 @@ func TestClienteAuthRoutesProtegeMeYCargaCliente(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	res = httptest.NewRecorder()
 	router.ServeHTTP(res, req)
-	if res.Code != http.StatusOK || !strings.Contains(res.Body.String(), `"cliente_id":42`) {
+	if res.Code != http.StatusOK || !strings.Contains(res.Body.String(), `"id":42`) || !strings.Contains(res.Body.String(), `"nombre":"Ana"`) {
 		t.Fatalf("con token status=%d body=%s", res.Code, res.Body.String())
 	}
 }

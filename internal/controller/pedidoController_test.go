@@ -102,6 +102,10 @@ func (r *fakePedidoRepository) GetHistorialEstados(_ context.Context, pedidoID i
 	}, nil
 }
 
+func (r *fakePedidoRepository) GetHistorialEstadosCliente(ctx context.Context, pedidoID, _ int) ([]models.PedidoEstadoHistorialDetalle, error) {
+	return r.GetHistorialEstados(ctx, pedidoID)
+}
+
 func (r *fakePedidoRepository) GetDetalle(_ context.Context, pedidoID int) (*models.PedidoDetalle, error) {
 	if r.err != nil {
 		return nil, r.err
@@ -113,6 +117,10 @@ func (r *fakePedidoRepository) GetDetalle(_ context.Context, pedidoID int) (*mod
 		EstadoActual: models.EstadoPedido{ID: 1, Nombre: "Recibido"},
 		Pagos:        []models.PagoDetalle{{Pago: models.Pago{ID: 3, PedidoID: pedidoID, Monto: 25}}},
 	}, nil
+}
+
+func (r *fakePedidoRepository) GetDetalleCliente(ctx context.Context, pedidoID, _ int) (*models.PedidoDetalle, error) {
+	return r.GetDetalle(ctx, pedidoID)
 }
 
 func (r *fakePedidoRepository) Cancelar(_ context.Context, pedidoID, usuarioID int) (*models.Pedido, error) {

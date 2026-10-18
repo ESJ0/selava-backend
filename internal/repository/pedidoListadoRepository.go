@@ -17,6 +17,9 @@ func (r *PedidoRepository) List(ctx context.Context, filter models.PedidoListFil
 		args = append(args, value)
 		return fmt.Sprintf("$%d", len(args))
 	}
+	if filter.ClienteID > 0 {
+		conditions = append(conditions, "p.cliente_id = "+bind(filter.ClienteID))
+	}
 	if filter.Buscar != "" {
 		literal := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(filter.Buscar)
 		pattern := bind("%" + literal + "%")

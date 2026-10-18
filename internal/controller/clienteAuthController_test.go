@@ -29,6 +29,13 @@ func (f *fakeClienteAuthService) Login(context.Context, *models.ClienteLoginRequ
 	return f.token, f.err
 }
 
+func (f *fakeClienteAuthService) ObtenerPerfil(context.Context, int) (*models.ClienteResponse, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &models.ClienteResponse{ID: 42, Nombre: "Ana", Apellido: "Lopez", Email: "ana@example.com", Activo: true}, nil
+}
+
 func TestClienteAuthControllerRegistrar(t *testing.T) {
 	servicio := &fakeClienteAuthService{registrado: &models.ClienteRegistrado{
 		Cliente: models.Cliente{ID: 7, Nombre: "Ana", Activo: true},
@@ -91,7 +98,7 @@ func TestClienteAuthControllerMeUsaIdentidadDelToken(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	handler.ServeHTTP(res, req)
-	if res.Code != http.StatusOK || !strings.Contains(res.Body.String(), `"cliente_id":42`) {
+	if res.Code != http.StatusOK || !strings.Contains(res.Body.String(), `"id":42`) || !strings.Contains(res.Body.String(), `"nombre":"Ana"`) {
 		t.Fatalf("status = %d, body = %s", res.Code, res.Body.String())
 	}
 }

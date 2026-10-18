@@ -26,6 +26,11 @@ func TestCuentaClienteRepositoryRegistraPerfilYCuentaAtomicamente(t *testing.T) 
 	if obtenido.Cuenta.PasswordHash != "hash-de-prueba" || obtenido.Cliente.Email != req.Email {
 		t.Fatalf("cuenta obtenida incorrecta: %#v", obtenido)
 	}
+	perfil, err := repo.GetClienteActivoByID(f.ctx, registro.Cliente.ID)
+	mustSprint3(t, err)
+	if perfil.ID != registro.Cliente.ID || perfil.Nombre != "Ana" || perfil.Email != req.Email {
+		t.Fatalf("perfil de sesion incorrecto: %#v", perfil)
+	}
 
 	mustSprint3(t, repo.MarcarUltimoAcceso(f.ctx, obtenido.Cuenta.ID))
 	var actualizado bool

@@ -40,6 +40,9 @@ func newRouter(clienteController *controller.ClienteController, servicioControll
 		r.Route("/api/cliente", func(r chi.Router) {
 			r.Use(authMW.AuthenticateCliente)
 			r.Get("/me", clienteAuthController.Me)
+			r.Get("/pedidos", pedidoController.ListarPropios)
+			r.Get("/pedidos/{pedidoID}", pedidoController.ObtenerDetallePropio)
+			r.Get("/pedidos/{pedidoID}/historial-estados", pedidoController.ObtenerHistorialEstadosPropio)
 		})
 	}
 	r.Get("/api/public/servicios", servicioController.ListarPublicos)

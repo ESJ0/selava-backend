@@ -165,10 +165,23 @@ func validarCancelacionPedido(estadoActualNombre string) error {
 }
 
 func (r *PedidoRepository) GetHistorialEstados(ctx context.Context, pedidoID int) ([]models.PedidoEstadoHistorialDetalle, error) {
+	return r.getHistorialEstados(ctx, pedidoID, 0)
+}
+
+// GetHistorialEstadosCliente aplica la pertenencia en la consulta. Un pedido
+// ajeno se trata igual que uno inexistente para no filtrar identificadores.
+func (r *PedidoRepository) GetHistorialEstadosCliente(ctx context.Context, pedidoID, clienteID int) ([]models.PedidoEstadoHistorialDetalle, error) {
+	return r.getHistorialEstados(ctx, pedidoID, clienteID)
+}
+
+func (r *PedidoRepository) getHistorialEstados(ctx context.Context, pedidoID, clienteID int) ([]models.PedidoEstadoHistorialDetalle, error) {
 	var pedidoExiste bool
 	if err := r.db.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM pedidos WHERE id = $1 AND activo = TRUE)`,
-		pedidoID,
+		`SELECT EXISTS(
+			SELECT 1 FROM pedidos
+			WHERE id = $1 AND activo = TRUE AND ($2 = 0 OR cliente_id = $2)
+		)`,
+		pedidoID, clienteID,
 	).Scan(&pedidoExiste); err != nil {
 		return nil, fmt.Errorf("error verificando pedido para consultar historial: %w", err)
 	}
@@ -215,6 +228,15 @@ func (r *PedidoRepository) GetHistorialEstados(ctx context.Context, pedidoID int
 }
 
 func (r *PedidoRepository) GetDetalle(ctx context.Context, pedidoID int) (*models.PedidoDetalle, error) {
+	return r.getDetalle(ctx, pedidoID, 0)
+}
+
+// GetDetalleCliente exige que el pedido pertenezca al cliente autenticado.
+func (r *PedidoRepository) GetDetalleCliente(ctx context.Context, pedidoID, clienteID int) (*models.PedidoDetalle, error) {
+	return r.getDetalle(ctx, pedidoID, clienteID)
+}
+
+func (r *PedidoRepository) getDetalle(ctx context.Context, pedidoID, clienteID int) (*models.PedidoDetalle, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error iniciando consulta de detalle del pedido: %w", err)
@@ -236,8 +258,9 @@ func (r *PedidoRepository) GetDetalle(ctx context.Context, pedidoID int) (*model
 		FROM pedidos p
 		JOIN clientes c ON c.id = p.cliente_id
 		JOIN estados_pedido e ON e.id = p.estado_actual_id
-		WHERE p.id = $1 AND p.activo = TRUE`
-	if err := tx.QueryRow(ctx, pedidoQuery, pedidoID).Scan(
+		WHERE p.id = $1 AND p.activo = TRUE
+		  AND ($2 = 0 OR p.cliente_id = $2)`
+	if err := tx.QueryRow(ctx, pedidoQuery, pedidoID, clienteID).Scan(
 		&detalle.ID, &detalle.ClienteID, &detalle.UsuarioID, &detalle.EstadoActualID,
 		&detalle.FechaRecibido, &detalle.FechaEntregaEstimada, &detalle.FechaEntregaReal,
 		&detalle.Total, &detalle.Observaciones, &detalle.Activo,

@@ -173,23 +173,112 @@ paths:
     get:
       tags: [Autenticacion]
       summary: Comprueba la sesion privada del cliente
-      description: Requiere un JWT de cliente; no acepta tokens del panel interno.
+      description: Requiere un JWT de cliente; no acepta tokens del panel interno. Devuelve el perfil minimo para restaurar la sesion del portal.
       x-token-actor: cliente
       responses:
         "200":
-          description: Identidad cargada desde el token
+          description: Perfil asociado a la identidad cargada desde el token
           content:
             application/json:
               schema:
-                type: object
-                required: [cliente_id]
-                properties:
-                  cliente_id:
-                    type: integer
-                    minimum: 1
-                    example: 42
+                $ref: "#/components/schemas/Cliente"
         "401":
           $ref: "#/components/responses/NoAutenticado"
+
+  /api/cliente/pedidos:
+    get:
+      tags: [Pedidos]
+      summary: Lista los pedidos del cliente autenticado
+      description: La identidad se obtiene del JWT de cliente; no se acepta cliente_id desde la peticion.
+      x-token-actor: cliente
+      parameters:
+        - name: estado_id
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 2147483647 }
+        - name: fecha_desde
+          in: query
+          schema: { type: string, format: date }
+        - name: fecha_hasta
+          in: query
+          schema: { type: string, format: date }
+        - name: pagina
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 1000000, default: 1 }
+        - name: limite
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: orden
+          in: query
+          schema: { type: string, enum: [recientes, antiguos], default: recientes }
+      responses:
+        "200":
+          description: Pagina de pedidos propios
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PedidosPropiosResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/cliente/pedidos/{pedidoID}:
+    get:
+      tags: [Pedidos]
+      summary: Consulta el detalle de un pedido propio
+      description: Un pedido ajeno se responde como no encontrado.
+      x-token-actor: cliente
+      parameters:
+        - name: pedidoID
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Detalle seguro para el portal cliente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PedidoPropioDetalle"
+        "400":
+          description: ID de pedido invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "404":
+          description: El pedido no existe, esta inactivo o pertenece a otro cliente
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/cliente/pedidos/{pedidoID}/historial-estados:
+    get:
+      tags: [Pedidos]
+      summary: Consulta el historial de estados de un pedido propio
+      description: Devuelve el timeline cronologico sin datos del personal interno.
+      x-token-actor: cliente
+      parameters:
+        - name: pedidoID
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Historial visible para el cliente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PedidoPropioHistorial"
+        "400":
+          description: ID de pedido invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "404":
+          description: El pedido no existe, esta inactivo o pertenece a otro cliente
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
 
   /api/insumos/:
     get:
@@ -1833,6 +1922,57 @@ components:
           type: integer
           minimum: 1
           maximum: 100
+
+    PedidosPropiosResponse:
+      type: object
+      required: [pedidos, total, pagina, limite]
+      properties:
+        pedidos:
+          type: array
+          items:
+            $ref: "#/components/schemas/PedidoPropioResumen"
+        total: { type: integer, minimum: 0 }
+        pagina: { type: integer, minimum: 1 }
+        limite: { type: integer, minimum: 1, maximum: 100 }
+
+    PedidoPropioResumen:
+      type: object
+      required: [id, fecha_recibido, total, estado_actual]
+      properties:
+        id: { type: integer }
+        fecha_recibido: { type: string, format: date-time }
+        fecha_entrega_estimada: { type: string, format: date-time }
+        total: { type: number, format: double }
+        estado_actual:
+          $ref: "#/components/schemas/EstadoPedido"
+
+    PedidoPropioDetalle:
+      type: object
+      required: [id, fecha_recibido, total, prendas, estado_actual]
+      properties:
+        id: { type: integer }
+        fecha_recibido: { type: string, format: date-time }
+        fecha_entrega_estimada: { type: string, format: date-time }
+        fecha_entrega_real: { type: string, format: date-time }
+        total: { type: number, format: double }
+        observaciones: { type: string }
+        prendas:
+          type: array
+          items:
+            $ref: "#/components/schemas/Prenda"
+        estado_actual:
+          $ref: "#/components/schemas/EstadoPedido"
+
+    PedidoPropioHistorial:
+      type: object
+      required: [id, pedido_id, estado, fecha_cambio]
+      properties:
+        id: { type: integer }
+        pedido_id: { type: integer }
+        estado:
+          $ref: "#/components/schemas/EstadoPedido"
+        fecha_cambio: { type: string, format: date-time }
+        observaciones: { type: string }
 
     PedidoResumen:
       type: object
