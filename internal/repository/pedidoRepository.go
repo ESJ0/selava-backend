@@ -279,9 +279,9 @@ func (r *PedidoRepository) getDetalle(ctx context.Context, pedidoID, clienteID i
 
 	const prendasQuery = `
 		SELECT p.id, p.pedido_id, p.tipo_prenda_id, p.descripcion,
-		       p.cantidad, p.color, p.created_at, p.updated_at,
+		       p.cantidad, p.color, p.created_at, p.updated_at, p.precio_aplicado,
 		       tp.id, tp.nombre, tp.descripcion, tp.activo,
-		       tp.created_at, tp.updated_at
+		       tp.created_at, tp.updated_at, tp.precio
 		FROM prendas p
 		JOIN tipos_prenda tp ON tp.id = p.tipo_prenda_id
 		WHERE p.pedido_id = $1
@@ -295,9 +295,9 @@ func (r *PedidoRepository) getDetalle(ctx context.Context, pedidoID, clienteID i
 		tipoPrenda := &models.TipoPrenda{}
 		if err := rows.Scan(
 			&prenda.ID, &prenda.PedidoID, &prenda.TipoPrendaID, &prenda.Descripcion,
-			&prenda.Cantidad, &prenda.Color, &prenda.CreatedAt, &prenda.UpdatedAt,
+			&prenda.Cantidad, &prenda.Color, &prenda.CreatedAt, &prenda.UpdatedAt, &prenda.PrecioAplicado,
 			&tipoPrenda.ID, &tipoPrenda.Nombre, &tipoPrenda.Descripcion,
-			&tipoPrenda.Activo, &tipoPrenda.CreatedAt, &tipoPrenda.UpdatedAt,
+			&tipoPrenda.Activo, &tipoPrenda.CreatedAt, &tipoPrenda.UpdatedAt, &tipoPrenda.Precio,
 		); err != nil {
 			rows.Close()
 			return nil, fmt.Errorf("error leyendo prendas del pedido: %w", err)
@@ -423,7 +423,7 @@ func (r *PedidoRepository) loadServiciosDePrenda(ctx context.Context, tx pgx.Tx,
 	const query = `
 		SELECT ps.id, ps.prenda_id, ps.servicio_id, ps.precio_aplicado,
 		       ps.created_at, ps.updated_at,
-		       s.id, s.nombre, s.descripcion, s.precio_base,
+		       s.id, s.nombre, s.descripcion, COALESCE(s.precio_base, 0),
 		       s.tiempo_estimado_horas, s.activo, s.created_at, s.updated_at
 		FROM prenda_servicios ps
 		JOIN servicios s ON s.id = ps.servicio_id
@@ -491,30 +491,12 @@ func (r *PedidoRepository) insertPedido(ctx context.Context, tx pgx.Tx, req *mod
 }
 
 func (r *PedidoRepository) insertPrenda(ctx context.Context, tx pgx.Tx, pedidoID int, req models.PrendaCreateRequest) (*models.Prenda, error) {
-	const query = `
-		INSERT INTO prendas (pedido_id, tipo_prenda_id, descripcion, cantidad, color)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, pedido_id, tipo_prenda_id, descripcion, cantidad, color, created_at, updated_at`
-
-	var prenda models.Prenda
-	err := tx.QueryRow(ctx, query,
-		pedidoID, req.TipoPrendaID, req.Descripcion, req.Cantidad, req.Color,
-	).Scan(
-		&prenda.ID, &prenda.PedidoID, &prenda.TipoPrendaID, &prenda.Descripcion,
-		&prenda.Cantidad, &prenda.Color, &prenda.CreatedAt, &prenda.UpdatedAt,
-	)
-	if err != nil {
-		if mappedErr := pedidoPrendaForeignKeyError(err); mappedErr != nil {
-			return nil, mappedErr
-		}
-		return nil, fmt.Errorf("error creando prenda: %w", err)
-	}
-	return &prenda, nil
+	return insertarPrendaConPrecio(ctx, tx, pedidoID, req)
 }
 
 func (r *PedidoRepository) insertPrendaServicio(ctx context.Context, tx pgx.Tx, prendaID, servicioID int) (*models.PrendaServicio, error) {
 	const query = `INSERT INTO prenda_servicios(prenda_id, servicio_id, precio_aplicado)
-		SELECT $1, id, precio_base FROM servicios WHERE id=$2 AND activo=TRUE
+		SELECT $1, id, 0 FROM servicios WHERE id=$2 AND activo=TRUE
 		RETURNING id, prenda_id, servicio_id, precio_aplicado, created_at, updated_at`
 	var relacion models.PrendaServicio
 	err := tx.QueryRow(ctx, query, prendaID, servicioID).Scan(

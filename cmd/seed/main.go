@@ -42,12 +42,14 @@ func main() {
 		log.Fatal(err)
 	}
 	for _, row := range [][2]string{{"Lavado", "Lavado general"}, {"Planchado", "Planchado de prendas"}, {"Lavado en seco", "Limpieza en seco"}} {
-		if _, err = tx.Exec(ctx, `INSERT INTO servicios(nombre,descripcion,precio_base,tiempo_estimado_horas) VALUES($1,$2,25,24) ON CONFLICT(nombre) DO UPDATE SET activo=TRUE`, row[0], row[1]); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO servicios(nombre,descripcion,tiempo_estimado_horas) VALUES($1,$2,24) ON CONFLICT(nombre) DO UPDATE SET activo=TRUE`, row[0], row[1]); err != nil {
 			log.Fatal(err)
 		}
 	}
 	for _, name := range []string{"Camisa", "Pantalón", "Vestido"} {
-		if _, err = tx.Exec(ctx, `INSERT INTO tipos_prenda(nombre) VALUES($1) ON CONFLICT(nombre) DO UPDATE SET activo=TRUE`, name); err != nil {
+		// Q25 es exclusivamente una tarifa de ejemplo del seed local.
+		// Un conflicto conserva la tarifa real que ya haya configurado el administrador.
+		if _, err = tx.Exec(ctx, `INSERT INTO tipos_prenda(nombre,precio) VALUES($1,25) ON CONFLICT(nombre) DO UPDATE SET activo=TRUE`, name); err != nil {
 			log.Fatal(err)
 		}
 	}

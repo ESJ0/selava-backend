@@ -49,31 +49,16 @@ func (r *PrendaRepository) CreateMany(ctx context.Context, pedidoID int, reqs []
 		return nil, ErrPedidoEstadoFinalizado
 	}
 
-	const query = `
-		INSERT INTO prendas (pedido_id, tipo_prenda_id, descripcion, cantidad, color)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, pedido_id, tipo_prenda_id, descripcion, cantidad, color,
-		          created_at, updated_at`
-
 	prendas := make([]models.Prenda, 0, len(reqs))
 	for _, req := range reqs {
-		var prenda models.Prenda
-		err := tx.QueryRow(ctx, query,
-			pedidoID, req.TipoPrendaID, req.Descripcion, req.Cantidad, req.Color,
-		).Scan(
-			&prenda.ID, &prenda.PedidoID, &prenda.TipoPrendaID,
-			&prenda.Descripcion, &prenda.Cantidad, &prenda.Color,
-			&prenda.CreatedAt, &prenda.UpdatedAt,
-		)
+		prendaGuardada, err := insertarPrendaConPrecio(ctx, tx, pedidoID, req)
 		if err != nil {
-			if mappedErr := prendaForeignKeyError(err); mappedErr != nil {
-				return nil, mappedErr
-			}
-			return nil, fmt.Errorf("error creando prenda: %w", err)
+			return nil, err
 		}
+		prenda := *prendaGuardada
 		for _, servicioReq := range req.Servicios {
 			var relacion models.PrendaServicio
-			err := tx.QueryRow(ctx, `INSERT INTO prenda_servicios(prenda_id,servicio_id,precio_aplicado) SELECT $1,id,precio_base FROM servicios WHERE id=$2 AND activo=TRUE RETURNING id,prenda_id,servicio_id,precio_aplicado,created_at,updated_at`, prenda.ID, servicioReq.ServicioID).Scan(
+			err := tx.QueryRow(ctx, `INSERT INTO prenda_servicios(prenda_id,servicio_id,precio_aplicado) SELECT $1,id,0 FROM servicios WHERE id=$2 AND activo=TRUE RETURNING id,prenda_id,servicio_id,precio_aplicado,created_at,updated_at`, prenda.ID, servicioReq.ServicioID).Scan(
 				&relacion.ID, &relacion.PrendaID, &relacion.ServicioID,
 				&relacion.PrecioAplicado, &relacion.CreatedAt, &relacion.UpdatedAt,
 			)
@@ -111,7 +96,7 @@ func (r *PrendaRepository) AddServicio(ctx context.Context, prendaID, servicioID
 
 	const query = `
 		INSERT INTO prenda_servicios (prenda_id, servicio_id, precio_aplicado)
-		SELECT $1, id, precio_base
+		SELECT $1, id, 0
 		FROM servicios
 		WHERE id = $2 AND activo = TRUE
 		RETURNING id, prenda_id, servicio_id, precio_aplicado, created_at, updated_at`
@@ -199,9 +184,9 @@ func recalcularTotalPedido(ctx context.Context, tx pgx.Tx, pedidoID int) (float6
 	const query = `
 		UPDATE pedidos
 		SET total = (
-			SELECT COALESCE(SUM(p.cantidad * ps.precio_aplicado), 0)
+			SELECT COALESCE(SUM(p.cantidad * COALESCE(p.precio_aplicado,
+			    (SELECT SUM(ps.precio_aplicado) FROM prenda_servicios ps WHERE ps.prenda_id = p.id), 0)), 0)
 			FROM prendas p
-			JOIN prenda_servicios ps ON ps.prenda_id = p.id
 			WHERE p.pedido_id = $1
 		), updated_at = NOW()
 		WHERE id = $1

@@ -102,6 +102,8 @@ func (pc *PrendaController) handleServiceError(w http.ResponseWriter, err error)
 	}
 
 	switch {
+	case errors.Is(err, repository.ErrTipoPrendaSinPrecio):
+		respondJSON(w, http.StatusUnprocessableEntity, map[string]any{"errores": validator.ValidationErrors{{Field: "tipo_prenda_id", Message: err.Error()}}})
 	case errors.Is(err, repository.ErrPedidoEstadoFinalizado):
 		respondError(w, http.StatusConflict, "el pedido ya fue entregado y no puede modificarse")
 	case errors.Is(err, repository.ErrPedidoNoEncontrado):

@@ -18,14 +18,16 @@ type PrendaServicioCreateRequest struct {
 
 // Prenda representa un registro de la tabla prendas.
 type Prenda struct {
-	ID           int              `json:"id"`
-	PedidoID     int              `json:"pedido_id"`
-	TipoPrendaID int              `json:"tipo_prenda_id"`
-	TipoPrenda   *TipoPrenda      `json:"tipo_prenda,omitempty"`
-	Descripcion  *string          `json:"descripcion,omitempty"`
-	Cantidad     int              `json:"cantidad"`
-	Color        *string          `json:"color,omitempty"`
-	CreatedAt    time.Time        `json:"created_at"`
-	UpdatedAt    time.Time        `json:"updated_at"`
-	Servicios    []PrendaServicio `json:"servicios"`
+	// NULL conserva el calculo historico por servicios; los registros nuevos tienen instantanea.
+	PrecioAplicado *float64         `json:"precio_aplicado"`
+	ID             int              `json:"id"`
+	PedidoID       int              `json:"pedido_id"`
+	TipoPrendaID   int              `json:"tipo_prenda_id"`
+	TipoPrenda     *TipoPrenda      `json:"tipo_prenda,omitempty"`
+	Descripcion    *string          `json:"descripcion,omitempty"`
+	Cantidad       int              `json:"cantidad"`
+	Color          *string          `json:"color,omitempty"`
+	CreatedAt      time.Time        `json:"created_at"`
+	UpdatedAt      time.Time        `json:"updated_at"`
+	Servicios      []PrendaServicio `json:"servicios"`
 }

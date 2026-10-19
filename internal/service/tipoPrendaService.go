@@ -68,3 +68,16 @@ func normalizarTipoPrendaCreate(req *models.TipoPrendaCreateRequest) {
 		req.Descripcion = &descripcion
 	}
 }
+
+type TipoPrendaPublicoRepository interface {
+	ListActiveWithPrice(context.Context) ([]models.TipoPrendaPublico, error)
+}
+
+type TipoPrendaPublicoService struct{ repo TipoPrendaPublicoRepository }
+
+func NewTipoPrendaPublicoService(repo TipoPrendaPublicoRepository) *TipoPrendaPublicoService {
+	return &TipoPrendaPublicoService{repo: repo}
+}
+func (s *TipoPrendaPublicoService) Listar(ctx context.Context) ([]models.TipoPrendaPublico, error) {
+	return s.repo.ListActiveWithPrice(ctx)
+}
