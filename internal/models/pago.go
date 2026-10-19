@@ -43,3 +43,14 @@ type PagoDetalle struct {
 	MetodoPago MetodoPago   `json:"metodo_pago"`
 	Usuario    *PagoUsuario `json:"usuario,omitempty"`
 }
+
+// PagoPropioDetalle es la vista segura de un pago para el cliente dueno del
+// pedido. Omite la identidad del empleado que registro el pago.
+type PagoPropioDetalle struct {
+	ID         int        `json:"id"`
+	PedidoID   int        `json:"pedido_id"`
+	Monto      float64    `json:"monto"`
+	Referencia *string    `json:"referencia,omitempty"`
+	FechaPago  time.Time  `json:"fecha_pago"`
+	MetodoPago MetodoPago `json:"metodo_pago"`
+}

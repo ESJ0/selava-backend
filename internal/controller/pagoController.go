@@ -53,6 +53,48 @@ func (pc *PagoController) ObtenerHistorial(w http.ResponseWriter, r *http.Reques
 	respondJSON(w, http.StatusOK, pagos)
 }
 
+func (pc *PagoController) ObtenerSaldoPropio(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+	pedidoID, err := strconv.Atoi(chi.URLParam(r, "pedidoID"))
+	if err != nil || pedidoID <= 0 {
+		respondError(w, http.StatusBadRequest, "id de pedido invalido")
+		return
+	}
+	claims, ok := middleware.ClienteClaimsFromContext(r.Context())
+	if !ok || claims.ClienteID <= 0 {
+		respondError(w, http.StatusUnauthorized, "token de autenticacion requerido")
+		return
+	}
+	saldo, err := pc.service.ObtenerSaldoCliente(ctx, pedidoID, claims.ClienteID)
+	if err != nil {
+		pc.handleError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, saldo)
+}
+
+func (pc *PagoController) ObtenerHistorialPropio(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+	pedidoID, err := strconv.Atoi(chi.URLParam(r, "pedidoID"))
+	if err != nil || pedidoID <= 0 {
+		respondError(w, http.StatusBadRequest, "id de pedido invalido")
+		return
+	}
+	claims, ok := middleware.ClienteClaimsFromContext(r.Context())
+	if !ok || claims.ClienteID <= 0 {
+		respondError(w, http.StatusUnauthorized, "token de autenticacion requerido")
+		return
+	}
+	pagos, err := pc.service.ObtenerHistorialCliente(ctx, pedidoID, claims.ClienteID)
+	if err != nil {
+		pc.handleError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, pagos)
+}
+
 func (pc *PagoController) Registrar(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
@@ -93,6 +135,8 @@ func (pc *PagoController) handleError(w http.ResponseWriter, err error) {
 		respondError(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, repository.ErrUsuarioNoEncontrado):
 		respondError(w, http.StatusUnauthorized, "usuario autenticado no encontrado")
+	case errors.Is(err, repository.ErrClienteNoEncontrado):
+		respondError(w, http.StatusUnauthorized, "cliente autenticado no encontrado")
 	case errors.Is(err, repository.ErrPagoExcedeSaldo), errors.Is(err, repository.ErrPedidoSinSaldo), errors.Is(err, repository.ErrPagoPedidoCancelado):
 		respondError(w, http.StatusConflict, err.Error())
 	default:
