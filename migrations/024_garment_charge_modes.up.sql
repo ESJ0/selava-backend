@@ -16,10 +16,9 @@ WHERE LOWER(BTRIM(nombre)) = 'alfombra';
 -- tres decimales para peso y longitud, y exige enteros para cobro por unidad.
 ALTER TABLE prendas ALTER COLUMN cantidad TYPE NUMERIC USING cantidad::NUMERIC;
 ALTER TABLE prendas ADD COLUMN modalidad_cobro_aplicada VARCHAR(10);
-UPDATE prendas p
-SET modalidad_cobro_aplicada = tp.modalidad_cobro
-FROM tipos_prenda tp
-WHERE tp.id = p.tipo_prenda_id;
+-- Antes de SEL-108 todas las cantidades eran unidades enteras. No reinterpretar
+-- una Canasta historica como libras por la nueva configuracion del catalogo.
+UPDATE prendas SET modalidad_cobro_aplicada = 'UNIDAD';
 ALTER TABLE prendas ALTER COLUMN modalidad_cobro_aplicada SET NOT NULL;
 ALTER TABLE prendas ADD CONSTRAINT chk_prenda_modalidad_cobro_aplicada
     CHECK (modalidad_cobro_aplicada IN ('UNIDAD', 'LIBRA', 'METRO'));

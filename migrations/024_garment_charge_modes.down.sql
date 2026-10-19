@@ -1,7 +1,9 @@
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM prendas WHERE cantidad <> TRUNC(cantidad)) THEN
-        RAISE EXCEPTION 'no se puede revertir: existen prendas con medidas decimales';
+    IF EXISTS (SELECT 1 FROM prendas WHERE cantidad <> TRUNC(cantidad)
+               OR modalidad_cobro_aplicada <> 'UNIDAD'
+               OR cantidad > 2147483647) THEN
+        RAISE EXCEPTION 'no se puede revertir: se perderian medidas o modalidades historicas';
     END IF;
 END $$;
 

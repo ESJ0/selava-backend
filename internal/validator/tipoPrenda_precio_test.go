@@ -49,4 +49,8 @@ func TestTipoPrendaModalidadCobro(t *testing.T) {
 	if errs := ValidateTipoPrendaUpdate(&models.TipoPrendaUpdateRequest{ModalidadCobro: &invalid}); !hasValidatorField(errs, "modalidad_cobro") {
 		t.Fatal("modalidad invalida aceptada")
 	}
+	empty := models.ModalidadCobro("")
+	if errs := ValidateTipoPrendaUpdate(&models.TipoPrendaUpdateRequest{ModalidadCobro: &empty}); !hasValidatorField(errs, "modalidad_cobro") {
+		t.Fatal("modalidad vacia aceptada al editar")
+	}
 }

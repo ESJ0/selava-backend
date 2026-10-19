@@ -51,7 +51,7 @@ func main() {
 	}{{"Camisa", "UNIDAD"}, {"Pantalón", "UNIDAD"}, {"Vestido", "UNIDAD"}, {"Canasta", "LIBRA"}, {"Alfombra", "METRO"}} {
 		// Q25 es exclusivamente una tarifa de ejemplo del seed local.
 		// Un conflicto conserva la tarifa real que ya haya configurado el administrador.
-		if _, err = tx.Exec(ctx, `INSERT INTO tipos_prenda(nombre,precio,modalidad_cobro) VALUES($1,25,$2) ON CONFLICT(nombre) DO UPDATE SET activo=TRUE,modalidad_cobro=EXCLUDED.modalidad_cobro`, garment.name, garment.mode); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO tipos_prenda(nombre,precio,modalidad_cobro) VALUES($1,25,$2) ON CONFLICT(nombre) DO UPDATE SET activo=TRUE`, garment.name, garment.mode); err != nil {
 			log.Fatal(err)
 		}
 	}
