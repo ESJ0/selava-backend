@@ -6,7 +6,7 @@ info:
     clientes, usuarios). Este documento cubre los endpoints implementados
     autenticacion, clientes, catalogos, pedidos, servicios por prenda,
     detalle, estados, pagos, inventario, reportes, historial y cancelacion.
-  version: "1.11.0"
+  version: "1.12.0"
 
 servers:
   - url: http://localhost:8080
@@ -16,6 +16,8 @@ security:
   - bearerAuth: []
 
 tags:
+  - name: Promociones
+    description: Paquetes por tipo y modalidad; administracion exclusiva de Administrador, consulta y cotizacion para Administrador/Recepcionista.
   - name: Salud
     description: Verificacion de disponibilidad del servicio
   - name: Autenticacion
@@ -44,6 +46,137 @@ tags:
     description: Indicadores financieros agregados para administracion
 
 paths:
+  /api/promociones/:
+    get:
+      tags: [Promociones]
+      summary: Lista promociones activas e inactivas (Administrador/Recepcionista)
+      responses:
+        "200":
+          description: Catalogo, incluido estado y vigencia
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Promocion" } }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/NoAutorizado" }
+        "500": { $ref: "#/components/responses/ErrorInterno" }
+    post:
+      tags: [Promociones]
+      summary: Crea una promocion (solo Administrador)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PromocionRequest" }
+            examples:
+              unidad:
+                value: { nombre: "2 camisas por Q40", tipo_prenda_id: 1, modalidad_cobro: UNIDAD, medida_requerida: 2, precio_promocional: 40, fecha_inicio: "2026-01-01T00:00:00Z", fecha_fin: "2027-01-01T00:00:00Z", activo: true }
+              libra:
+                value: { nombre: "5 lb por Q50", tipo_prenda_id: 2, modalidad_cobro: LIBRA, medida_requerida: 5, precio_promocional: 50, fecha_inicio: "2026-01-01T00:00:00Z", fecha_fin: "2027-01-01T00:00:00Z", activo: true }
+              metro:
+                value: { nombre: "2 m por Q60", tipo_prenda_id: 3, modalidad_cobro: METRO, medida_requerida: 2, precio_promocional: 60, fecha_inicio: "2026-01-01T00:00:00Z", fecha_fin: "2027-01-01T00:00:00Z", activo: true }
+      responses:
+        "201":
+          description: Promocion creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Promocion" }
+        "400": { description: JSON o fechas con formato invalido }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/NoAutorizado" }
+        "404": { $ref: "#/components/responses/TipoPrendaNoEncontrado" }
+        "422": { $ref: "#/components/responses/ErrorValidacion" }
+        "500": { $ref: "#/components/responses/ErrorInterno" }
+  /api/promociones/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      tags: [Promociones]
+      summary: Obtiene una promocion (Administrador/Recepcionista)
+      responses:
+        "200":
+          description: Promocion encontrada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Promocion" }
+        "400": { description: ID invalido }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/NoAutorizado" }
+        "404": { description: Promocion no encontrada }
+        "500": { $ref: "#/components/responses/ErrorInterno" }
+    put:
+      tags: [Promociones]
+      summary: Edita todos los campos del catalogo, sin cambiar pedidos (solo Administrador)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PromocionRequest" }
+      responses:
+        "200":
+          description: Promocion actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Promocion" }
+        "400": { description: ID o JSON invalido }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/NoAutorizado" }
+        "404": { description: Promocion o tipo de prenda inexistente/inactivo }
+        "422": { $ref: "#/components/responses/ErrorValidacion" }
+        "500": { $ref: "#/components/responses/ErrorInterno" }
+  /api/promociones/{id}/estado:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    patch:
+      tags: [Promociones]
+      summary: Activa o desactiva sin modificar pedidos existentes (solo Administrador)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [activo]
+              properties:
+                activo: { type: boolean }
+      responses:
+        "200":
+          description: Estado actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Promocion" }
+        "400": { description: ID o JSON invalido }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/NoAutorizado" }
+        "404": { description: Promocion no encontrada }
+        "422": { $ref: "#/components/responses/ErrorValidacion" }
+        "500": { $ref: "#/components/responses/ErrorInterno" }
+  /api/pedidos/cotizacion:
+    post:
+      tags: [Promociones, Pedidos]
+      summary: Cotiza promociones elegibles y seleccionadas (Administrador/Recepcionista)
+      description: >
+        Agrupa todas las filas del mismo tipo; una promocion seleccionada por tipo.
+        Solo usa IDs y medidas, ignora importes/aplicaciones del navegador.
+        Sin seleccion cobra normal. Al crear el pedido vuelve a validar en una
+        transaccion; una promocion vencida, inactiva o incompatible devuelve 422.
+        Las vigencias son instantes RFC3339 inclusivos. No persiste la cotizacion.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PromocionCotizacionRequest" }
+      responses:
+        "200":
+          description: Opciones elegibles y total calculado en centavos/milesimas exactos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PromocionCotizacion" }
+        "400": { description: JSON invalido }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/NoAutorizado" }
+        "404": { $ref: "#/components/responses/TipoPrendaNoEncontrado" }
+        "422": { $ref: "#/components/responses/ErrorValidacion" }
+        "500": { $ref: "#/components/responses/ErrorInterno" }
   /health:
     get:
       tags: [Salud]
@@ -1799,6 +1932,88 @@ components:
             $ref: "#/components/schemas/ValidationErrorResponse"
 
   schemas:
+    PromocionRequest:
+      type: object
+      required: [nombre, tipo_prenda_id, modalidad_cobro, medida_requerida, precio_promocional, fecha_inicio, fecha_fin]
+      properties:
+        nombre: { type: string, minLength: 1, maxLength: 100 }
+        descripcion: { type: string, maxLength: 500 }
+        tipo_prenda_id: { type: integer, minimum: 1 }
+        modalidad_cobro: { $ref: "#/components/schemas/ModalidadCobro" }
+        medida_requerida:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 99999999.999
+          multipleOf: 0.001
+          description: Entera para UNIDAD; hasta tres decimales para LIBRA/METRO. Debe coincidir con modalidad del tipo activo.
+        precio_promocional: { type: number, minimum: 0, exclusiveMinimum: true, maximum: 99999999.99, multipleOf: 0.01 }
+        fecha_inicio: { type: string, format: date-time }
+        fecha_fin: { type: string, format: date-time, description: Debe ser igual o posterior al inicio. }
+        activo: { type: boolean, default: false }
+    Promocion:
+      allOf:
+        - { $ref: "#/components/schemas/PromocionRequest" }
+        - type: object
+          properties:
+            id: { type: integer }
+            tipo_prenda_nombre: { type: string }
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+    PromocionSeleccion:
+      type: object
+      required: [tipo_prenda_id, promocion_id]
+      properties:
+        tipo_prenda_id: { type: integer, minimum: 1 }
+        promocion_id: { type: integer, minimum: 1 }
+    PromocionAplicada:
+      type: object
+      description: Instantanea inmutable persistida al crear el pedido. Nunca se reconstruye desde el catalogo vigente. Importe normal es solo el sobrante; subtotal_base es el importe anterior a la promocion de esas prendas.
+      properties:
+        promocion_id: { type: integer }
+        nombre: { type: string }
+        descripcion: { type: string }
+        tipo_prenda_id: { type: integer }
+        tipo_prenda_nombre: { type: string }
+        modalidad_cobro_aplicada: { $ref: "#/components/schemas/ModalidadCobro" }
+        medida_requerida: { type: number }
+        precio_promocional: { type: number }
+        medida_disponible: { type: number }
+        aplicaciones: { type: integer, format: int64 }
+        medida_cubierta: { type: number }
+        sobrante: { type: number }
+        precio_normal_aplicado: { type: number }
+        subtotal_promocional: { type: number }
+        subtotal_normal: { type: number }
+        subtotal_base: { type: number }
+        subtotal_total: { type: number }
+        prenda_ids: { type: array, items: { type: integer } }
+      example: { promocion_id: 1, nombre: "2 camisas por Q40", tipo_prenda_id: 1, tipo_prenda_nombre: Camisa, modalidad_cobro_aplicada: UNIDAD, medida_requerida: 2, precio_promocional: 40, medida_disponible: 5, aplicaciones: 2, medida_cubierta: 4, sobrante: 1, precio_normal_aplicado: 25, subtotal_promocional: 80, subtotal_normal: 25, subtotal_base: 125, subtotal_total: 105, prenda_ids: [1,2,3,4,5] }
+    PromocionCotizacionRequest:
+      type: object
+      required: [prendas]
+      properties:
+        prendas: { type: array, minItems: 1, items: { $ref: "#/components/schemas/PrendaCreateRequest" } }
+        promociones: { type: array, items: { $ref: "#/components/schemas/PromocionSeleccion" } }
+    PromocionCotizacionGrupo:
+      type: object
+      properties:
+        tipo_prenda_id: { type: integer }
+        tipo_prenda_nombre: { type: string }
+        modalidad_cobro: { $ref: "#/components/schemas/ModalidadCobro" }
+        medida: { type: number }
+        precio_normal: { type: number }
+        subtotal_base: { type: number }
+        subtotal_total: { type: number }
+        elegibles: { type: array, items: { $ref: "#/components/schemas/PromocionAplicada" } }
+        aplicada:
+          allOf: [{ $ref: "#/components/schemas/PromocionAplicada" }]
+          nullable: true
+    PromocionCotizacion:
+      type: object
+      properties:
+        grupos: { type: array, items: { $ref: "#/components/schemas/PromocionCotizacionGrupo" } }
+        total: { type: number, example: 105 }
     Insumo:
       type: object
       required: [id, nombre, unidad_medida, stock_actual, stock_minimo, activo, created_at, updated_at]
@@ -2027,6 +2242,7 @@ components:
       type: object
       required: [id, fecha_recibido, total, prendas, estado_actual]
       properties:
+        promociones_aplicadas: { type: array, items: { $ref: "#/components/schemas/PromocionAplicada" } }
         id: { type: integer }
         fecha_recibido: { type: string, format: date-time }
         fecha_entrega_estimada: { type: string, format: date-time }
@@ -2091,6 +2307,7 @@ components:
         - type: object
           required: [cliente, prendas, estado_actual, pagos]
           properties:
+            promociones_aplicadas: { type: array, items: { $ref: "#/components/schemas/PromocionAplicada" } }
             cliente:
               $ref: "#/components/schemas/Cliente"
             prendas:
@@ -2124,6 +2341,10 @@ components:
       type: object
       required: [cliente_id, prendas]
       properties:
+        promociones:
+          type: array
+          description: Opcional; una seleccion por tipo. El backend vuelve a calcular y congela el desglose; no se aceptan importes ni aplicaciones del navegador.
+          items: { $ref: "#/components/schemas/PromocionSeleccion" }
         cliente_id:
           type: integer
           minimum: 1
@@ -2327,6 +2548,7 @@ components:
         - $ref: "#/components/schemas/Pedido"
         - type: object
           properties:
+            promociones_aplicadas: { type: array, items: { $ref: "#/components/schemas/PromocionAplicada" } }
             prendas:
               type: array
               items:
