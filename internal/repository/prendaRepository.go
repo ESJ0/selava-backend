@@ -187,6 +187,7 @@ func recalcularTotalPedido(ctx context.Context, tx pgx.Tx, pedidoID int) (float6
 	const totalQuery = `
 		SELECT COALESCE(SUM(ROUND(p.cantidad * COALESCE(p.precio_aplicado,
 		    (SELECT SUM(ps.precio_aplicado) FROM prenda_servicios ps WHERE ps.prenda_id = p.id), 0), 2)), 0)
+		    - COALESCE((SELECT SUM(pp.subtotal_base - pp.subtotal_total) FROM pedido_promociones pp WHERE pp.pedido_id = $1), 0)
 		FROM prendas p WHERE p.pedido_id = $1`
 	var total float64
 	if err := tx.QueryRow(ctx, totalQuery, pedidoID).Scan(&total); err != nil {

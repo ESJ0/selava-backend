@@ -75,6 +75,7 @@ func main() {
 	reporteController := controller.NewReporteController(reporteVentasService, reportePedidosEstadoService, reporteConsumoInsumosService)
 
 	router := routes.NewRouterWithClienteAuth(clienteController, servicioController, insumoController, movimientoInventarioController, tipoPrendaController, metodoPagoController, pedidoController, pagoController, prendaController, estadoPedidoController, authController, clienteAuthController, cfg.JWTSecret, cfg.AllowedOrigins, reporteController)
+	routes.RegisterPromociones(router, controller.NewPromocionController(service.NewPromocionService(repository.NewPromocionRepository(db))), cfg.JWTSecret)
 
 	port := cfg.Port
 	if port == "" {

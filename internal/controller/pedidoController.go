@@ -224,6 +224,8 @@ func (pc *PedidoController) handleServiceError(w http.ResponseWriter, err error)
 	}
 
 	switch {
+	case errors.Is(err, repository.ErrPromocionInvalida):
+		respondJSON(w, http.StatusUnprocessableEntity, map[string]any{"errores": validator.ValidationErrors{{Field: "promociones", Message: err.Error()}}})
 	case errors.Is(err, repository.ErrTotalPedidoFueraDeRango):
 		respondJSON(w, http.StatusUnprocessableEntity, map[string]any{"errores": validator.ValidationErrors{{Field: "prendas", Message: err.Error()}}})
 	case errors.Is(err, repository.ErrTipoPrendaSinPrecio):

@@ -39,6 +39,10 @@ func (r *PedidoRepository) Create(ctx context.Context, req *models.PedidoCreateR
 		return nil, fmt.Errorf("error iniciando transaccion: %w", err)
 	}
 	defer tx.Rollback(ctx)
+	quote, err := cotizarPromociones(ctx, tx, req)
+	if err != nil {
+		return nil, err
+	}
 
 	pedido, err := r.insertPedido(ctx, tx, req, usuarioID)
 	if err != nil {
@@ -60,6 +64,10 @@ func (r *PedidoRepository) Create(ctx context.Context, req *models.PedidoCreateR
 		}
 		prendas = append(prendas, *prenda)
 	}
+	aplicadas, err := guardarPromociones(ctx, tx, pedido.ID, quote, prendas)
+	if err != nil {
+		return nil, err
+	}
 	pedido.Total, pedido.UpdatedAt, err = recalcularTotalPedido(ctx, tx, pedido.ID)
 	if err != nil {
 		return nil, err
@@ -69,7 +77,7 @@ func (r *PedidoRepository) Create(ctx context.Context, req *models.PedidoCreateR
 		return nil, fmt.Errorf("error confirmando transaccion: %w", err)
 	}
 
-	return &models.PedidoConPrendas{Pedido: *pedido, Prendas: prendas}, nil
+	return &models.PedidoConPrendas{Pedido: *pedido, Prendas: prendas, PromocionesAplicadas: aplicadas}, nil
 }
 
 func (r *PedidoRepository) UpdateEstado(ctx context.Context, pedidoID int, req *models.PedidoEstadoUpdateRequest, usuarioID int) (*models.PedidoEstadoHistorial, error) {
@@ -349,6 +357,10 @@ func (r *PedidoRepository) getDetalle(ctx context.Context, pedidoID, clienteID i
 	}
 	rows.Close()
 
+	detalle.PromocionesAplicadas, err = cargarPromociones(ctx, tx, pedidoID)
+	if err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("error confirmando consulta de detalle del pedido: %w", err)
 	}

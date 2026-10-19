@@ -5,14 +5,15 @@ import "time"
 // PedidoPropioDetalle es la vista segura del detalle para el cliente dueño.
 // No expone IDs ni datos personales de usuarios internos.
 type PedidoPropioDetalle struct {
-	ID                   int          `json:"id"`
-	FechaRecibido        time.Time    `json:"fecha_recibido"`
-	FechaEntregaEstimada *time.Time   `json:"fecha_entrega_estimada,omitempty"`
-	FechaEntregaReal     *time.Time   `json:"fecha_entrega_real,omitempty"`
-	Total                float64      `json:"total"`
-	Observaciones        *string      `json:"observaciones,omitempty"`
-	Prendas              []Prenda     `json:"prendas"`
-	EstadoActual         EstadoPedido `json:"estado_actual"`
+	PromocionesAplicadas []PromocionAplicada `json:"promociones_aplicadas"`
+	ID                   int                 `json:"id"`
+	FechaRecibido        time.Time           `json:"fecha_recibido"`
+	FechaEntregaEstimada *time.Time          `json:"fecha_entrega_estimada,omitempty"`
+	FechaEntregaReal     *time.Time          `json:"fecha_entrega_real,omitempty"`
+	Total                float64             `json:"total"`
+	Observaciones        *string             `json:"observaciones,omitempty"`
+	Prendas              []Prenda            `json:"prendas"`
+	EstadoActual         EstadoPedido        `json:"estado_actual"`
 }
 
 // PedidoPropioHistorial representa un movimiento visible en el timeline del
