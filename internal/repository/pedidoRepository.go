@@ -279,9 +279,9 @@ func (r *PedidoRepository) getDetalle(ctx context.Context, pedidoID, clienteID i
 
 	const prendasQuery = `
 		SELECT p.id, p.pedido_id, p.tipo_prenda_id, p.descripcion,
-		       p.cantidad, p.color, p.created_at, p.updated_at, p.precio_aplicado,
+		       p.cantidad, p.color, p.created_at, p.updated_at, p.precio_aplicado, p.modalidad_cobro_aplicada,
 		       tp.id, tp.nombre, tp.descripcion, tp.activo,
-		       tp.created_at, tp.updated_at, tp.precio
+		       tp.created_at, tp.updated_at, tp.precio, tp.modalidad_cobro
 		FROM prendas p
 		JOIN tipos_prenda tp ON tp.id = p.tipo_prenda_id
 		WHERE p.pedido_id = $1
@@ -295,9 +295,9 @@ func (r *PedidoRepository) getDetalle(ctx context.Context, pedidoID, clienteID i
 		tipoPrenda := &models.TipoPrenda{}
 		if err := rows.Scan(
 			&prenda.ID, &prenda.PedidoID, &prenda.TipoPrendaID, &prenda.Descripcion,
-			&prenda.Cantidad, &prenda.Color, &prenda.CreatedAt, &prenda.UpdatedAt, &prenda.PrecioAplicado,
+			&prenda.Cantidad, &prenda.Color, &prenda.CreatedAt, &prenda.UpdatedAt, &prenda.PrecioAplicado, &prenda.ModalidadCobroAplicada,
 			&tipoPrenda.ID, &tipoPrenda.Nombre, &tipoPrenda.Descripcion,
-			&tipoPrenda.Activo, &tipoPrenda.CreatedAt, &tipoPrenda.UpdatedAt, &tipoPrenda.Precio,
+			&tipoPrenda.Activo, &tipoPrenda.CreatedAt, &tipoPrenda.UpdatedAt, &tipoPrenda.Precio, &tipoPrenda.ModalidadCobro,
 		); err != nil {
 			rows.Close()
 			return nil, fmt.Errorf("error leyendo prendas del pedido: %w", err)
