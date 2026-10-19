@@ -12,6 +12,9 @@ import (
 func ValidateTipoPrendaCreate(req *models.TipoPrendaCreateRequest) ValidationErrors {
 	var errs ValidationErrors
 	errs = append(errs, validateTipoPrendaNombre(req.Nombre)...)
+	if req.ModalidadCobro != "" {
+		errs = append(errs, validateModalidadCobro(req.ModalidadCobro)...)
+	}
 	if req.Precio == nil {
 		errs = append(errs, FieldError{Field: "precio", Message: "es requerido"})
 	} else {
@@ -28,6 +31,9 @@ func ValidateTipoPrendaUpdate(req *models.TipoPrendaUpdateRequest) ValidationErr
 	if req.Precio != nil {
 		errs = append(errs, validatePrecioTipoPrenda(*req.Precio)...)
 	}
+	if req.ModalidadCobro != nil {
+		errs = append(errs, validateModalidadCobro(*req.ModalidadCobro)...)
+	}
 	if req.Nombre != nil {
 		errs = append(errs, validateTipoPrendaNombre(*req.Nombre)...)
 	}
@@ -35,6 +41,15 @@ func ValidateTipoPrendaUpdate(req *models.TipoPrendaUpdateRequest) ValidationErr
 		errs = append(errs, validateTipoPrendaDescripcion(*req.Descripcion)...)
 	}
 	return errs
+}
+
+func validateModalidadCobro(modalidad models.ModalidadCobro) ValidationErrors {
+	switch modalidad {
+	case models.ModalidadCobroUnidad, models.ModalidadCobroLibra, models.ModalidadCobroMetro:
+		return nil
+	default:
+		return ValidationErrors{{Field: "modalidad_cobro", Message: "debe ser UNIDAD, LIBRA o METRO"}}
+	}
 }
 
 func validateTipoPrendaNombre(nombre string) ValidationErrors {

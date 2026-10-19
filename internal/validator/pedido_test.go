@@ -34,6 +34,25 @@ func TestPedidoRechazaServicioDuplicado(t *testing.T) {
 		t.Fatal("expected duplicate service error")
 	}
 }
+
+func TestPedidoAceptaMedidaDecimalConTresDecimales(t *testing.T) {
+	p := validPrenda()
+	p.Cantidad = 2.125
+	if errs := ValidatePedidoCreate(&models.PedidoCreateRequest{ClienteID: 1, Prendas: []models.PrendaCreateRequest{p}}); errs.HasErrors() {
+		t.Fatal(errs)
+	}
+}
+
+func TestPedidoRechazaMedidaInvalida(t *testing.T) {
+	for _, value := range []float64{0, -1, 1.0001, 100000000} {
+		p := validPrenda()
+		p.Cantidad = value
+		errs := ValidatePedidoCreate(&models.PedidoCreateRequest{ClienteID: 1, Prendas: []models.PrendaCreateRequest{p}})
+		if !hasValidatorField(errs, "prendas[0].cantidad") {
+			t.Fatalf("cantidad %v aceptada: %+v", value, errs)
+		}
+	}
+}
 func hasValidatorField(errs ValidationErrors, field string) bool {
 	for _, err := range errs {
 		if err.Field == field {

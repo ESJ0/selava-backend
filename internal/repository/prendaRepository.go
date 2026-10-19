@@ -17,6 +17,7 @@ var (
 	ErrPrendaNoEncontrada         = errors.New("prenda no encontrada")
 	ErrPrendaServicioYaAsociado   = errors.New("el servicio ya esta asociado a la prenda")
 	ErrPrendaServicioNoEncontrado = errors.New("el servicio no esta asociado a la prenda")
+	ErrTotalPedidoFueraDeRango    = errors.New("el total del pedido no puede superar 99999999.99")
 )
 
 type PrendaRepository struct {
@@ -181,20 +182,27 @@ func lockPedidoDePrenda(ctx context.Context, tx pgx.Tx, prendaID int) (int, erro
 }
 
 func recalcularTotalPedido(ctx context.Context, tx pgx.Tx, pedidoID int) (float64, time.Time, error) {
+	// PostgreSQL redondea cada subtotal a centavos, igual que el resumen. Los
+	// historicos por unidad ya eran importes exactos con dos decimales.
+	const totalQuery = `
+		SELECT COALESCE(SUM(ROUND(p.cantidad * COALESCE(p.precio_aplicado,
+		    (SELECT SUM(ps.precio_aplicado) FROM prenda_servicios ps WHERE ps.prenda_id = p.id), 0), 2)), 0)
+		FROM prendas p WHERE p.pedido_id = $1`
+	var total float64
+	if err := tx.QueryRow(ctx, totalQuery, pedidoID).Scan(&total); err != nil {
+		return 0, time.Time{}, fmt.Errorf("error calculando total del pedido: %w", err)
+	}
+	if total > 99999999.99 {
+		return 0, time.Time{}, ErrTotalPedidoFueraDeRango
+	}
 	const query = `
 		UPDATE pedidos
-		SET total = (
-			SELECT COALESCE(SUM(p.cantidad * COALESCE(p.precio_aplicado,
-			    (SELECT SUM(ps.precio_aplicado) FROM prenda_servicios ps WHERE ps.prenda_id = p.id), 0)), 0)
-			FROM prendas p
-			WHERE p.pedido_id = $1
-		), updated_at = NOW()
+		SET total = $2, updated_at = NOW()
 		WHERE id = $1
 		RETURNING total, updated_at`
 
-	var total float64
 	var updatedAt time.Time
-	if err := tx.QueryRow(ctx, query, pedidoID).Scan(&total, &updatedAt); err != nil {
+	if err := tx.QueryRow(ctx, query, pedidoID, total).Scan(&total, &updatedAt); err != nil {
 		return 0, time.Time{}, fmt.Errorf("error recalculando total del pedido: %w", err)
 	}
 	return total, updatedAt, nil

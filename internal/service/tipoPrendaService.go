@@ -51,6 +51,10 @@ func (s *TipoPrendaService) ActualizarTipoPrenda(ctx context.Context, id int, re
 		descripcion := strings.TrimSpace(*req.Descripcion)
 		req.Descripcion = &descripcion
 	}
+	if req.ModalidadCobro != nil {
+		modalidad := models.ModalidadCobro(strings.ToUpper(strings.TrimSpace(string(*req.ModalidadCobro))))
+		req.ModalidadCobro = &modalidad
+	}
 	if errs := validator.ValidateTipoPrendaUpdate(req); errs.HasErrors() {
 		return nil, errs
 	}
@@ -63,6 +67,10 @@ func (s *TipoPrendaService) EliminarTipoPrenda(ctx context.Context, id int) erro
 
 func normalizarTipoPrendaCreate(req *models.TipoPrendaCreateRequest) {
 	req.Nombre = strings.TrimSpace(req.Nombre)
+	req.ModalidadCobro = models.ModalidadCobro(strings.ToUpper(strings.TrimSpace(string(req.ModalidadCobro))))
+	if req.ModalidadCobro == "" {
+		req.ModalidadCobro = models.ModalidadCobroUnidad
+	}
 	if req.Descripcion != nil {
 		descripcion := strings.TrimSpace(*req.Descripcion)
 		req.Descripcion = &descripcion

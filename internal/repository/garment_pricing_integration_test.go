@@ -112,6 +112,10 @@ func TestSEL107MigracionPreservaPedidosAnteriores(t *testing.T) {
 	mustSprint3(t, err)
 	_, err = f.db.Exec(f.ctx, string(migration))
 	mustSprint3(t, err)
+	chargeModes, err := os.ReadFile("../../migrations/024_garment_charge_modes.up.sql")
+	mustSprint3(t, err)
+	_, err = f.db.Exec(f.ctx, string(chargeModes))
+	mustSprint3(t, err)
 	f.total(t, pedidoID, 31.50)
 	public, err := NewTipoPrendaRepository(f.db).ListActiveWithPrice(f.ctx)
 	mustSprint3(t, err)
@@ -135,6 +139,9 @@ func TestSEL107MigracionPreservaPedidosAnteriores(t *testing.T) {
 	mustSprint3(t, err)
 	if detalle.Prendas[0].PrecioAplicado != nil || detalle.Prendas[0].Servicios[0].PrecioAplicado != 10.25 {
 		t.Fatal(detalle.Prendas)
+	}
+	if detalle.Prendas[0].Subtotal == nil || *detalle.Prendas[0].Subtotal != 31.50 {
+		t.Fatal("subtotal historico alterado", detalle.Prendas)
 	}
 	nuevo := f.order(t, 1)
 	f.total(t, nuevo.ID, 99)

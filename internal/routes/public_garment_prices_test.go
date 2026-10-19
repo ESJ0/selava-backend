@@ -26,7 +26,7 @@ func garmentPricesRouter(repo publicGarmentRepo) http.Handler {
 	return NewRouter(nil, nil, nil, nil, tc, nil, nil, nil, nil, nil, nil, "test-secret", "http://localhost:5180")
 }
 func TestPublicGarmentPricesReadOnlyNoJWT(t *testing.T) {
-	router := garmentPricesRouter(publicGarmentRepo{catalog: []models.TipoPrendaPublico{{ID: 1, Nombre: "Camisa", Precio: 25.50}}})
+	router := garmentPricesRouter(publicGarmentRepo{catalog: []models.TipoPrendaPublico{{ID: 1, Nombre: "Camisa", Precio: 25.50, ModalidadCobro: models.ModalidadCobroUnidad}}})
 	req := httptest.NewRequest(http.MethodGet, "/api/public/tipos-prenda", nil)
 	req.Header.Set("Origin", "http://localhost:5180")
 	res := httptest.NewRecorder()
@@ -35,7 +35,7 @@ func TestPublicGarmentPricesReadOnlyNoJWT(t *testing.T) {
 	if err := json.Unmarshal(res.Body.Bytes(), &catalog); err != nil {
 		t.Fatal(err)
 	}
-	if res.Code != 200 || len(catalog) != 1 || len(catalog[0]) != 4 || catalog[0]["precio"] != 25.50 {
+	if res.Code != 200 || len(catalog) != 1 || len(catalog[0]) != 5 || catalog[0]["precio"] != 25.50 || catalog[0]["modalidad_cobro"] != "UNIDAD" {
 		t.Fatal(res.Code, res.Body.String())
 	}
 	if res.Header().Get("Access-Control-Allow-Origin") != "http://localhost:5180" {

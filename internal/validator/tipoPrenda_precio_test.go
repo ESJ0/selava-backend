@@ -37,3 +37,20 @@ func TestTipoPrendaPrecioRequeridoYPrecision(t *testing.T) {
 	}
 }
 func precioPtr(value float64) *float64 { return &value }
+
+func TestTipoPrendaModalidadCobro(t *testing.T) {
+	price := 25.0
+	for _, mode := range []models.ModalidadCobro{models.ModalidadCobroUnidad, models.ModalidadCobroLibra, models.ModalidadCobroMetro} {
+		if errs := ValidateTipoPrendaCreate(&models.TipoPrendaCreateRequest{Nombre: "Prenda", Precio: &price, ModalidadCobro: mode}); errs.HasErrors() {
+			t.Fatalf("modalidad %s: %v", mode, errs)
+		}
+	}
+	invalid := models.ModalidadCobro("KILO")
+	if errs := ValidateTipoPrendaUpdate(&models.TipoPrendaUpdateRequest{ModalidadCobro: &invalid}); !hasValidatorField(errs, "modalidad_cobro") {
+		t.Fatal("modalidad invalida aceptada")
+	}
+	empty := models.ModalidadCobro("")
+	if errs := ValidateTipoPrendaUpdate(&models.TipoPrendaUpdateRequest{ModalidadCobro: &empty}); !hasValidatorField(errs, "modalidad_cobro") {
+		t.Fatal("modalidad vacia aceptada al editar")
+	}
+}

@@ -2212,9 +2212,14 @@ components:
           type: string
           example: Camisa a rayas azules
         cantidad:
-          type: integer
-          minimum: 1
-          example: 3
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 99999999.999
+          multipleOf: 0.001
+          description: Entero para UNIDAD; admite hasta 3 decimales para LIBRA y METRO. La modalidad se obtiene del tipo de prenda.
+          example: 2.5
         color:
           type: string
           maxLength: 30
@@ -2234,12 +2239,22 @@ components:
       type: object
       description: El cobro usa precio_aplicado congelado por prenda, sin recargos por servicios.
       properties:
+        subtotal:
+          type: number
+          format: double
+          readOnly: true
+          description: Solo en respuestas de detalle. PostgreSQL redondea a centavos la medida y tarifa congeladas; para historicos usa importes aplicados por servicio. No usa el catalogo actual ni modifica datos.
+          example: 22.50
         precio_aplicado:
           type: number
           format: double
           nullable: true
           description: Tarifa congelada del tipo al registrar. NULL identifica prendas anteriores a SEL-107, calculadas con prenda_servicios.precio_aplicado.
           example: 25.50
+        modalidad_cobro_aplicada:
+          allOf:
+            - $ref: "#/components/schemas/ModalidadCobro"
+          description: Modalidad congelada al registrar la prenda; no cambia si se edita el catálogo. Los registros anteriores a SEL-108 conservan UNIDAD.
         id:
           type: integer
           example: 10
@@ -2256,8 +2271,10 @@ components:
           nullable: true
           example: Camisa a rayas azules
         cantidad:
-          type: integer
-          example: 3
+          type: number
+          format: double
+          multipleOf: 0.001
+          example: 2.5
         color:
           type: string
           nullable: true
@@ -2318,12 +2335,19 @@ components:
     TipoPrendaPublico:
       type: object
       additionalProperties: false
-      required: [id, nombre, descripcion, precio]
+      required: [id, nombre, descripcion, precio, modalidad_cobro]
       properties:
         id: { type: integer }
         nombre: { type: string }
         descripcion: { type: string, nullable: true }
         precio: { type: number, format: double, minimum: 0, exclusiveMinimum: true, maximum: 99999999.99, multipleOf: 0.01 }
+        modalidad_cobro:
+          $ref: "#/components/schemas/ModalidadCobro"
+
+    ModalidadCobro:
+      type: string
+      enum: [UNIDAD, LIBRA, METRO]
+      description: UNIDAD exige enteros; LIBRA y METRO admiten medidas decimales positivas.
 
     TipoPrenda:
       type: object
@@ -2338,6 +2362,8 @@ components:
           maximum: 99999999.99
           multipleOf: 0.01
           example: 25.50
+        modalidad_cobro:
+          $ref: "#/components/schemas/ModalidadCobro"
         id:
           type: integer
           example: 1
@@ -2370,6 +2396,10 @@ components:
           maximum: 99999999.99
           multipleOf: 0.01
           example: 25.50
+        modalidad_cobro:
+          allOf:
+            - $ref: "#/components/schemas/ModalidadCobro"
+          default: UNIDAD
         nombre:
           type: string
           maxLength: 50
@@ -2390,6 +2420,8 @@ components:
           maximum: 99999999.99
           multipleOf: 0.01
           example: 25.50
+        modalidad_cobro:
+          $ref: "#/components/schemas/ModalidadCobro"
         nombre:
           type: string
           maxLength: 50

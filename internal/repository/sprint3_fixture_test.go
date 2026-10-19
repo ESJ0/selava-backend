@@ -63,7 +63,7 @@ func newSprint3Fixture(t *testing.T, beforePricing ...bool) *sprint3Fixture {
 		t.Fatal("no se encontraron migraciones")
 	}
 	for _, file := range files {
-		if len(beforePricing) > 0 && beforePricing[0] && strings.HasPrefix(filepath.Base(file), "023_") {
+		if len(beforePricing) > 0 && beforePricing[0] && (strings.HasPrefix(filepath.Base(file), "023_") || strings.HasPrefix(filepath.Base(file), "024_")) {
 			continue
 		}
 		sql, readErr := os.ReadFile(file)
@@ -102,7 +102,7 @@ func (f *sprint3Fixture) order(t *testing.T, quantities ...int) *models.PedidoCo
 	}
 	req := &models.PedidoCreateRequest{ClienteID: f.clientID}
 	for _, quantity := range quantities {
-		req.Prendas = append(req.Prendas, models.PrendaCreateRequest{TipoPrendaID: f.typeID, Cantidad: quantity, Servicios: []models.PrendaServicioCreateRequest{{ServicioID: f.services[0]}}})
+		req.Prendas = append(req.Prendas, models.PrendaCreateRequest{TipoPrendaID: f.typeID, Cantidad: float64(quantity), Servicios: []models.PrendaServicioCreateRequest{{ServicioID: f.services[0]}}})
 	}
 	order, err := NewPedidoRepository(f.db).Create(f.ctx, req, f.userID)
 	mustSprint3(t, err)

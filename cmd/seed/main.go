@@ -46,10 +46,12 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-	for _, name := range []string{"Camisa", "Pantalón", "Vestido"} {
+	for _, garment := range []struct {
+		name, mode string
+	}{{"Camisa", "UNIDAD"}, {"Pantalón", "UNIDAD"}, {"Vestido", "UNIDAD"}, {"Canasta", "LIBRA"}, {"Alfombra", "METRO"}} {
 		// Q25 es exclusivamente una tarifa de ejemplo del seed local.
 		// Un conflicto conserva la tarifa real que ya haya configurado el administrador.
-		if _, err = tx.Exec(ctx, `INSERT INTO tipos_prenda(nombre,precio) VALUES($1,25) ON CONFLICT(nombre) DO UPDATE SET activo=TRUE`, name); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO tipos_prenda(nombre,precio,modalidad_cobro) VALUES($1,25,$2) ON CONFLICT(nombre) DO UPDATE SET activo=TRUE`, garment.name, garment.mode); err != nil {
 			log.Fatal(err)
 		}
 	}

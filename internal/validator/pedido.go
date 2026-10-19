@@ -35,12 +35,7 @@ func validatePrendaCreate(index int, prenda models.PrendaCreateRequest) Validati
 		})
 	}
 
-	if prenda.Cantidad <= 0 {
-		errs = append(errs, FieldError{
-			Field:   fmt.Sprintf("prendas[%d].cantidad", index),
-			Message: "debe ser mayor a cero",
-		})
-	}
+	errs = append(errs, validateMedidaPrenda(fmt.Sprintf("prendas[%d].cantidad", index), prenda.Cantidad)...)
 
 	if prenda.Color != nil && *prenda.Color == "" {
 		errs = append(errs, FieldError{
