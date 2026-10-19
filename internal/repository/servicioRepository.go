@@ -27,8 +27,8 @@ func NewServicioRepository(db *pgxpool.Pool) *ServicioRepository {
 func (r *ServicioRepository) Create(ctx context.Context, req *models.ServicioCreateRequest) (*models.Servicio, error) {
 	const query = `
 		INSERT INTO servicios (nombre, descripcion, precio_base, tiempo_estimado_horas)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, nombre, descripcion, precio_base, tiempo_estimado_horas,
+		VALUES ($1, $2, NULLIF($3, 0), $4)
+		RETURNING id, nombre, descripcion, COALESCE(precio_base, 0), tiempo_estimado_horas,
 		          activo, created_at, updated_at`
 
 	var servicio models.Servicio
@@ -47,7 +47,7 @@ func (r *ServicioRepository) Create(ctx context.Context, req *models.ServicioCre
 
 func (r *ServicioRepository) GetByID(ctx context.Context, id int) (*models.Servicio, error) {
 	const query = `
-		SELECT id, nombre, descripcion, precio_base, tiempo_estimado_horas,
+		SELECT id, nombre, descripcion, COALESCE(precio_base, 0), tiempo_estimado_horas,
 		       activo, created_at, updated_at
 		FROM servicios WHERE id = $1`
 
@@ -67,7 +67,7 @@ func (r *ServicioRepository) GetByID(ctx context.Context, id int) (*models.Servi
 
 func (r *ServicioRepository) List(ctx context.Context) ([]models.Servicio, error) {
 	const query = `
-		SELECT id, nombre, descripcion, precio_base, tiempo_estimado_horas,
+		SELECT id, nombre, descripcion, COALESCE(precio_base, 0), tiempo_estimado_horas,
 		       activo, created_at, updated_at
 		FROM servicios ORDER BY id`
 
@@ -97,7 +97,7 @@ func (r *ServicioRepository) List(ctx context.Context) ([]models.Servicio, error
 // ListActive conserva el orden por ID del listado administrativo y filtra en PostgreSQL.
 func (r *ServicioRepository) ListActive(ctx context.Context) ([]models.ServicioPublico, error) {
 	const query = `
-		SELECT id, nombre, descripcion, precio_base, tiempo_estimado_horas
+		SELECT id, nombre, descripcion, COALESCE(precio_base, 0), tiempo_estimado_horas
 		FROM servicios WHERE activo = TRUE ORDER BY id`
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
@@ -128,7 +128,7 @@ func (r *ServicioRepository) Update(ctx context.Context, id int, req *models.Ser
 			activo = COALESCE($5, activo),
 			updated_at = NOW()
 		WHERE id = $6
-		RETURNING id, nombre, descripcion, precio_base, tiempo_estimado_horas,
+		RETURNING id, nombre, descripcion, COALESCE(precio_base, 0), tiempo_estimado_horas,
 		          activo, created_at, updated_at`
 
 	var servicio models.Servicio

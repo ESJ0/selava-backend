@@ -14,10 +14,15 @@ import (
 
 type TipoPrendaController struct {
 	service *service.TipoPrendaService
+	publico *service.TipoPrendaPublicoService
 }
 
-func NewTipoPrendaController(service *service.TipoPrendaService) *TipoPrendaController {
-	return &TipoPrendaController{service: service}
+func NewTipoPrendaController(service *service.TipoPrendaService, publico ...*service.TipoPrendaPublicoService) *TipoPrendaController {
+	controller := &TipoPrendaController{service: service}
+	if len(publico) > 0 {
+		controller.publico = publico[0]
+	}
+	return controller
 }
 
 func (tc *TipoPrendaController) Crear(w http.ResponseWriter, r *http.Request) {
@@ -117,4 +122,22 @@ func (tc *TipoPrendaController) handleServiceError(w http.ResponseWriter, err er
 	default:
 		respondError(w, http.StatusInternalServerError, "error interno del servidor")
 	}
+}
+
+func (tc *TipoPrendaController) ListarPublicos(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+	if tc.publico == nil {
+		respondError(w, http.StatusInternalServerError, "catalogo publico no configurado")
+		return
+	}
+	tipos, err := tc.publico.Listar(ctx)
+	if err != nil {
+		tc.handleServiceError(w, err)
+		return
+	}
+	if tipos == nil {
+		tipos = make([]models.TipoPrendaPublico, 0)
+	}
+	respondJSON(w, http.StatusOK, tipos)
 }

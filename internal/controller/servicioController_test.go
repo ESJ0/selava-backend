@@ -152,7 +152,7 @@ func TestServicioControllerCrearReturnsCreated(t *testing.T) {
 
 func TestServicioControllerCrearRejectsPrecioInvalido(t *testing.T) {
 	controller := newServicioControllerForTest()
-	req := httptest.NewRequest(http.MethodPost, "/api/servicios", strings.NewReader(`{"nombre":"Lavado","precio_base":0}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/servicios", strings.NewReader(`{"nombre":"Lavado","precio_base":-1}`))
 	res := httptest.NewRecorder()
 
 	controller.Crear(res, req)

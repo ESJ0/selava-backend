@@ -4,9 +4,10 @@ import "time"
 
 // Servicio representa un servicio ofrecido por la lavanderia.
 type Servicio struct {
-	ID                  int       `json:"id"`
-	Nombre              string    `json:"nombre"`
-	Descripcion         *string   `json:"descripcion,omitempty"`
+	ID          int     `json:"id"`
+	Nombre      string  `json:"nombre"`
+	Descripcion *string `json:"descripcion,omitempty"`
+	// Deprecated: solo compatibilidad; no es una tarifa operativa.
 	PrecioBase          float64   `json:"precio_base"`
 	TiempoEstimadoHoras *int      `json:"tiempo_estimado_horas,omitempty"`
 	Activo              bool      `json:"activo"`

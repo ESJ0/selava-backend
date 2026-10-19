@@ -6,7 +6,7 @@ info:
     clientes, usuarios). Este documento cubre los endpoints implementados
     autenticacion, clientes, catalogos, pedidos, servicios por prenda,
     detalle, estados, pagos, inventario, reportes, historial y cancelacion.
-  version: "1.10.0"
+  version: "1.11.0"
 
 servers:
   - url: http://localhost:8080
@@ -937,8 +937,8 @@ paths:
       x-roles: [Administrador, Recepcionista]
       summary: Asocia un servicio a una prenda existente
       description: >
-        Captura el precio base vigente del servicio como precio aplicado y
-        recalcula el total del pedido al que pertenece la prenda.
+        Asocia el servicio sin recargo (precio_aplicado=0). La tarifa congelada
+        en la prenda no cambia al agregar o quitar servicios.
       parameters:
         - name: prendaID
           in: path
@@ -993,7 +993,7 @@ paths:
       tags: [Prendas]
       x-roles: [Administrador, Recepcionista]
       summary: Quita un servicio de una prenda existente
-      description: Quita la asociacion y recalcula el total del pedido.
+      description: Quita la asociacion. En prendas SEL-107 no cambia el importe; en prendas anteriores conserva el calculo con importes historicos.
       parameters:
         - name: prendaID
           in: path
@@ -1193,14 +1193,35 @@ paths:
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
+  /api/public/tipos-prenda:
+    get:
+      tags: [Tipos de Prenda]
+      summary: Precios publicos por tipo de prenda
+      description: Solo activos con precio configurado, ordenados por ID. No requiere JWT. Devuelve [] si no hay tipos disponibles.
+      security: []
+      responses:
+        "200":
+          description: Catalogo de precios vigentes en quetzales
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TipoPrendaPublico"
+              example:
+                - { id: 1, nombre: Camisa, descripcion: null, precio: 25.00 }
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
   /api/public/servicios:
     get:
       tags: [Servicios]
-      summary: Catalogo publico de servicios activos y precios
+      summary: Catalogo publico de servicios activos (precio deprecado)
       description: >
         No requiere autenticacion. Devuelve exclusivamente servicios con activo=true,
-        ordenados por ID ascendente como el listado administrativo. Los precios
-        proceden de PostgreSQL. Un catalogo sin servicios activos devuelve 200 y [].
+        ordenados por ID ascendente. precio_base se conserva por compatibilidad y
+        no es una tarifa operativa; consultar /api/public/tipos-prenda para precios.
+        Un catalogo sin servicios activos devuelve 200 y [].
       security: []
       responses:
         "200":
@@ -2211,7 +2232,14 @@ components:
 
     Prenda:
       type: object
+      description: El cobro usa precio_aplicado congelado por prenda, sin recargos por servicios.
       properties:
+        precio_aplicado:
+          type: number
+          format: double
+          nullable: true
+          description: Tarifa congelada del tipo al registrar. NULL identifica prendas anteriores a SEL-107, calculadas con prenda_servicios.precio_aplicado.
+          example: 25.50
         id:
           type: integer
           example: 10
@@ -2257,6 +2285,7 @@ components:
         servicio:
           $ref: "#/components/schemas/Servicio"
         precio_aplicado:
+          description: Importe historico intacto. Las nuevas asociaciones guardan 0 y no generan recargos.
           type: number
           format: double
         created_at:
@@ -2286,9 +2315,29 @@ components:
               items:
                 $ref: "#/components/schemas/Prenda"
 
+    TipoPrendaPublico:
+      type: object
+      additionalProperties: false
+      required: [id, nombre, descripcion, precio]
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        descripcion: { type: string, nullable: true }
+        precio: { type: number, format: double, minimum: 0, exclusiveMinimum: true, maximum: 99999999.99, multipleOf: 0.01 }
+
     TipoPrenda:
       type: object
       properties:
+        precio:
+          nullable: true
+          description: NULL solo en tipos anteriores pendientes de configurar.
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 99999999.99
+          multipleOf: 0.01
+          example: 25.50
         id:
           type: integer
           example: 1
@@ -2311,8 +2360,16 @@ components:
 
     TipoPrendaCreateRequest:
       type: object
-      required: [nombre]
+      required: [nombre, precio]
       properties:
+        precio:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 99999999.99
+          multipleOf: 0.01
+          example: 25.50
         nombre:
           type: string
           maxLength: 50
@@ -2325,6 +2382,14 @@ components:
       type: object
       description: Todos los campos son opcionales; solo se actualizan los enviados.
       properties:
+        precio:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 99999999.99
+          multipleOf: 0.01
+          example: 25.50
         nombre:
           type: string
           maxLength: 50
@@ -2350,10 +2415,11 @@ components:
           nullable: true
           example: Limpieza especializada para prendas delicadas
         precio_base:
+          deprecated: true
+          description: Solo compatibilidad; nunca calcula nuevas prendas. Respuestas y altas sin tarifa devuelven 0.
           type: number
           format: double
           minimum: 0
-          exclusiveMinimum: true
           example: 35.5
         tiempo_estimado_horas:
           type: integer
@@ -2374,10 +2440,11 @@ components:
           nullable: true
           example: Limpieza especializada para prendas delicadas
         precio_base:
+          deprecated: true
+          description: Solo compatibilidad; nunca calcula nuevas prendas. Respuestas y altas sin tarifa devuelven 0.
           type: number
           format: double
           minimum: 0
-          exclusiveMinimum: true
           example: 35.5
         tiempo_estimado_horas:
           type: integer
@@ -2395,7 +2462,7 @@ components:
 
     ServicioCreateRequest:
       type: object
-      required: [nombre, precio_base]
+      required: [nombre]
       properties:
         nombre:
           type: string
@@ -2404,10 +2471,11 @@ components:
         descripcion:
           type: string
         precio_base:
+          deprecated: true
+          description: Solo compatibilidad; nunca calcula nuevas prendas. Respuestas y altas sin tarifa devuelven 0.
           type: number
           format: double
           minimum: 0
-          exclusiveMinimum: true
           example: 35.5
         tiempo_estimado_horas:
           type: integer
@@ -2423,6 +2491,8 @@ components:
         descripcion:
           type: string
         precio_base:
+          deprecated: true
+          description: Solo compatibilidad; nunca calcula nuevas prendas. Respuestas y altas sin tarifa devuelven 0.
           type: number
           format: double
           minimum: 0

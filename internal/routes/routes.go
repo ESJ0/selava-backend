@@ -48,6 +48,7 @@ func newRouter(clienteController *controller.ClienteController, servicioControll
 		})
 	}
 	r.Get("/api/public/servicios", servicioController.ListarPublicos)
+	r.Get("/api/public/tipos-prenda", tipoPrendaController.ListarPublicos)
 
 	r.Route("/api/clientes", func(r chi.Router) {
 		r.Use(authMW.Authenticate)

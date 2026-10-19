@@ -224,6 +224,8 @@ func (pc *PedidoController) handleServiceError(w http.ResponseWriter, err error)
 	}
 
 	switch {
+	case errors.Is(err, repository.ErrTipoPrendaSinPrecio):
+		respondJSON(w, http.StatusUnprocessableEntity, map[string]any{"errores": validator.ValidationErrors{{Field: "tipo_prenda_id", Message: err.Error()}}})
 	case errors.Is(err, repository.ErrClienteNoEncontrado):
 		respondError(w, http.StatusNotFound, "cliente no encontrado")
 	case errors.Is(err, repository.ErrUsuarioNoEncontrado):

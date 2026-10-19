@@ -44,7 +44,7 @@ func main() {
 	movimientoInventarioController := controller.NewMovimientoInventarioController(movimientoInventarioService)
 	tipoPrendaRepo := repository.NewTipoPrendaRepository(db)
 	tipoPrendaService := service.NewTipoPrendaService(tipoPrendaRepo)
-	tipoPrendaController := controller.NewTipoPrendaController(tipoPrendaService)
+	tipoPrendaController := controller.NewTipoPrendaController(tipoPrendaService, service.NewTipoPrendaPublicoService(tipoPrendaRepo))
 	metodoPagoRepo := repository.NewMetodoPagoRepository(db)
 	metodoPagoService := service.NewMetodoPagoService(metodoPagoRepo)
 	metodoPagoController := controller.NewMetodoPagoController(metodoPagoService)

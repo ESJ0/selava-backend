@@ -9,7 +9,9 @@ import (
 func ValidateServicioCreate(req *models.ServicioCreateRequest) ValidationErrors {
 	var errs ValidationErrors
 	errs = append(errs, validateNombreServicio(req.Nombre)...)
-	errs = append(errs, validatePrecioServicio(req.PrecioBase)...)
+	if req.PrecioBase != 0 {
+		errs = append(errs, validatePrecioServicio(req.PrecioBase)...)
+	}
 	return errs
 }
 
