@@ -33,10 +33,10 @@ func TestIdentidadClienteNoPuedeSuplantarseConParametrosOCabeceras(t *testing.T)
 			req.Header.Set("Authorization", "Bearer "+caso.token)
 			req.Header.Set("X-Cliente-ID", fmt.Sprint(caso.otro))
 			res := ejecutarRequest(router, req)
-			if res.Code != http.StatusOK || !strings.Contains(res.Body.String(), fmt.Sprintf(`"cliente_id":%d`, caso.esperado)) {
+			if res.Code != http.StatusOK || !strings.Contains(res.Body.String(), fmt.Sprintf(`"id":%d`, caso.esperado)) {
 				t.Fatalf("status=%d body=%s", res.Code, res.Body.String())
 			}
-			if strings.Contains(res.Body.String(), fmt.Sprintf(`"cliente_id":%d`, caso.otro)) {
+			if strings.Contains(res.Body.String(), fmt.Sprintf(`"id":%d`, caso.otro)) {
 				t.Fatalf("la respuesta uso una identidad proporcionada por el cliente: %s", res.Body.String())
 			}
 		})
