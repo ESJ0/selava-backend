@@ -45,6 +45,11 @@ func TestSEL108CobroCombinadoYSnapshots(t *testing.T) {
 	if detail.Total != 107.5 || detail.Prendas[1].ModalidadCobroAplicada != models.ModalidadCobroLibra || *detail.Prendas[1].PrecioAplicado != poundPrice {
 		t.Fatalf("se altero el historico: %+v", detail.Prendas[1])
 	}
+	for i, expected := range []float64{20, 50, 37.5} {
+		if detail.Prendas[i].Subtotal == nil || *detail.Prendas[i].Subtotal != expected {
+			t.Fatalf("subtotal de lectura %d: %+v", i, detail.Prendas[i])
+		}
+	}
 }
 
 func TestSEL108UnidadRechazaDecimalesYMedidasLosAceptan(t *testing.T) {

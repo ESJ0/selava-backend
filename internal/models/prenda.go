@@ -19,16 +19,18 @@ type PrendaServicioCreateRequest struct {
 // Prenda representa un registro de la tabla prendas.
 type Prenda struct {
 	// NULL conserva el calculo historico por servicios; los registros nuevos tienen instantanea.
-	PrecioAplicado         *float64         `json:"precio_aplicado"`
-	ModalidadCobroAplicada ModalidadCobro   `json:"modalidad_cobro_aplicada"`
-	ID                     int              `json:"id"`
-	PedidoID               int              `json:"pedido_id"`
-	TipoPrendaID           int              `json:"tipo_prenda_id"`
-	TipoPrenda             *TipoPrenda      `json:"tipo_prenda,omitempty"`
-	Descripcion            *string          `json:"descripcion,omitempty"`
-	Cantidad               float64          `json:"cantidad"`
-	Color                  *string          `json:"color,omitempty"`
-	CreatedAt              time.Time        `json:"created_at"`
-	UpdatedAt              time.Time        `json:"updated_at"`
-	Servicios              []PrendaServicio `json:"servicios"`
+	PrecioAplicado         *float64       `json:"precio_aplicado"`
+	ModalidadCobroAplicada ModalidadCobro `json:"modalidad_cobro_aplicada"`
+	// Solo lectura en el detalle: calculado por PostgreSQL desde las instantaneas persistidas.
+	Subtotal     *float64         `json:"subtotal,omitempty"`
+	ID           int              `json:"id"`
+	PedidoID     int              `json:"pedido_id"`
+	TipoPrendaID int              `json:"tipo_prenda_id"`
+	TipoPrenda   *TipoPrenda      `json:"tipo_prenda,omitempty"`
+	Descripcion  *string          `json:"descripcion,omitempty"`
+	Cantidad     float64          `json:"cantidad"`
+	Color        *string          `json:"color,omitempty"`
+	CreatedAt    time.Time        `json:"created_at"`
+	UpdatedAt    time.Time        `json:"updated_at"`
+	Servicios    []PrendaServicio `json:"servicios"`
 }

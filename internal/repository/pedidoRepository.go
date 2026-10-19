@@ -281,7 +281,9 @@ func (r *PedidoRepository) getDetalle(ctx context.Context, pedidoID, clienteID i
 		SELECT p.id, p.pedido_id, p.tipo_prenda_id, p.descripcion,
 		       p.cantidad, p.color, p.created_at, p.updated_at, p.precio_aplicado, p.modalidad_cobro_aplicada,
 		       tp.id, tp.nombre, tp.descripcion, tp.activo,
-		       tp.created_at, tp.updated_at, tp.precio, tp.modalidad_cobro
+		       tp.created_at, tp.updated_at, tp.precio, tp.modalidad_cobro,
+		       ROUND(p.cantidad * COALESCE(p.precio_aplicado,
+		           (SELECT SUM(ps.precio_aplicado) FROM prenda_servicios ps WHERE ps.prenda_id = p.id), 0), 2)
 		FROM prendas p
 		JOIN tipos_prenda tp ON tp.id = p.tipo_prenda_id
 		WHERE p.pedido_id = $1
@@ -298,6 +300,7 @@ func (r *PedidoRepository) getDetalle(ctx context.Context, pedidoID, clienteID i
 			&prenda.Cantidad, &prenda.Color, &prenda.CreatedAt, &prenda.UpdatedAt, &prenda.PrecioAplicado, &prenda.ModalidadCobroAplicada,
 			&tipoPrenda.ID, &tipoPrenda.Nombre, &tipoPrenda.Descripcion,
 			&tipoPrenda.Activo, &tipoPrenda.CreatedAt, &tipoPrenda.UpdatedAt, &tipoPrenda.Precio, &tipoPrenda.ModalidadCobro,
+			&prenda.Subtotal,
 		); err != nil {
 			rows.Close()
 			return nil, fmt.Errorf("error leyendo prendas del pedido: %w", err)

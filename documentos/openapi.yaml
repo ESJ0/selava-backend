@@ -2239,6 +2239,12 @@ components:
       type: object
       description: El cobro usa precio_aplicado congelado por prenda, sin recargos por servicios.
       properties:
+        subtotal:
+          type: number
+          format: double
+          readOnly: true
+          description: Solo en respuestas de detalle. PostgreSQL redondea a centavos la medida y tarifa congeladas; para historicos usa importes aplicados por servicio. No usa el catalogo actual ni modifica datos.
+          example: 22.50
         precio_aplicado:
           type: number
           format: double

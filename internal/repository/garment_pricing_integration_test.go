@@ -140,6 +140,9 @@ func TestSEL107MigracionPreservaPedidosAnteriores(t *testing.T) {
 	if detalle.Prendas[0].PrecioAplicado != nil || detalle.Prendas[0].Servicios[0].PrecioAplicado != 10.25 {
 		t.Fatal(detalle.Prendas)
 	}
+	if detalle.Prendas[0].Subtotal == nil || *detalle.Prendas[0].Subtotal != 31.50 {
+		t.Fatal("subtotal historico alterado", detalle.Prendas)
+	}
 	nuevo := f.order(t, 1)
 	f.total(t, nuevo.ID, 99)
 	f.total(t, pedidoID, 31.50)

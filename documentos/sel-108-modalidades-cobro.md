@@ -42,5 +42,11 @@ cambian dinámicamente entre Cantidad, Peso en libras y Metros. El resumen y el
 detalle muestran medida, unidad, tarifa congelada y subtotal. El portal cliente
 requiere indicar «por unidad/libra/metro» en el catálogo público y presentar la
 modalidad congelada en el detalle. En la revisión no se encontró una rama cliente
-SEL-108; ese ajuste queda pendiente por instrucción expresa del usuario. Los PRs
-de backend/admin no se deben integrar mientras esa incompatibilidad permanezca.
+SEL-108 durante la primera revisión. La adaptación cliente se completa en
+`feature/sel-108-cobros-cliente` antes de integrar los tres componentes.
+
+El detalle devuelve además `prendas[].subtotal`, de solo lectura, calculado por
+PostgreSQL con la misma regla de centavos del total y las instantáneas persistidas.
+No existe una columna separada de subtotal: se deriva de los datos históricos
+guardados y nunca del catálogo vigente. El cliente solo presenta esa respuesta,
+sin multiplicar importes ni reconstruir el total.

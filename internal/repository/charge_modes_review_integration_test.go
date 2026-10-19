@@ -47,6 +47,13 @@ func TestSEL108ReviewRedondeoPorSubtotalSinRecargos(t *testing.T) {
 	order, err := NewPedidoRepository(f.db).Create(f.ctx, &models.PedidoCreateRequest{ClienteID: f.clientID, Prendas: []models.PrendaCreateRequest{garment, garment}}, f.userID)
 	mustSprint3(t, err)
 	f.total(t, order.ID, 1.02)
+	detail, err := NewPedidoRepository(f.db).GetDetalle(f.ctx, order.ID)
+	mustSprint3(t, err)
+	for _, item := range detail.Prendas {
+		if item.Subtotal == nil || *item.Subtotal != 0.51 {
+			t.Fatalf("subtotal sin redondeo del servidor: %+v", item)
+		}
+	}
 	for _, item := range order.Prendas {
 		for _, service := range item.Servicios {
 			if service.PrecioAplicado != 0 {
