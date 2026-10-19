@@ -2248,7 +2248,7 @@ components:
         modalidad_cobro_aplicada:
           allOf:
             - $ref: "#/components/schemas/ModalidadCobro"
-          description: Modalidad congelada al registrar la prenda; no cambia si se edita el catálogo.
+          description: Modalidad congelada al registrar la prenda; no cambia si se edita el catálogo. Los registros anteriores a SEL-108 conservan UNIDAD.
         id:
           type: integer
           example: 10
