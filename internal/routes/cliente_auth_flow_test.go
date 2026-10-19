@@ -3,9 +3,9 @@ package routes
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -59,6 +59,16 @@ func (r *memoriaCuentaClienteRepository) GetByEmail(_ context.Context, email str
 		return nil, repository.ErrCuentaClienteNoEncontrada
 	}
 	return registro, nil
+}
+
+func (r *memoriaCuentaClienteRepository) GetClienteActivoByID(_ context.Context, clienteID int) (*models.Cliente, error) {
+	for _, registro := range r.cuentas {
+		if registro.Cliente.ID == clienteID && registro.Cliente.Activo {
+			cliente := registro.Cliente
+			return &cliente, nil
+		}
+	}
+	return nil, repository.ErrCuentaClienteNoEncontrada
 }
 
 func (r *memoriaCuentaClienteRepository) MarcarUltimoAcceso(_ context.Context, cuentaID int) error {
@@ -153,7 +163,7 @@ func TestFlujoRegistroYLoginCliente(t *testing.T) {
 	}
 
 	protegido := ejecutarJSON(router, http.MethodGet, "/api/cliente/me", "", token)
-	if protegido.Code != http.StatusOK || !strings.Contains(protegido.Body.String(), `"id":`+strconv.Itoa(clienteID)) {
+	if protegido.Code != http.StatusOK || !strings.Contains(protegido.Body.String(), fmt.Sprintf(`"id":%d`, clienteID)) {
 		t.Fatalf("acceso protegido status=%d body=%s", protegido.Code, protegido.Body.String())
 	}
 }

@@ -280,6 +280,62 @@ paths:
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
+  /api/cliente/pedidos/{pedidoID}/pagos:
+    get:
+      tags: [Pagos]
+      summary: Consulta los pagos de un pedido propio
+      description: La propiedad se valida con el cliente del JWT. No expone informacion del empleado que registro el pago.
+      x-token-actor: cliente
+      parameters:
+        - name: pedidoID
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Historial cronologico de pagos visible para el cliente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PagoPropioDetalle"
+        "400":
+          description: ID de pedido invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "404":
+          description: El pedido no existe, esta inactivo o pertenece a otro cliente
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/cliente/pedidos/{pedidoID}/saldo:
+    get:
+      tags: [Pagos]
+      summary: Consulta el saldo de un pedido propio
+      description: Devuelve total, total pagado y saldo pendiente despues de validar la propiedad con el JWT.
+      x-token-actor: cliente
+      parameters:
+        - name: pedidoID
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Saldo del pedido propio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaldoPedido"
+        "400":
+          description: ID de pedido invalido
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "404":
+          description: El pedido no existe, esta inactivo o pertenece a otro cliente
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
   /api/insumos/:
     get:
       tags: [Insumos]
@@ -2558,6 +2614,27 @@ components:
               $ref: "#/components/schemas/MetodoPago"
             usuario:
               $ref: "#/components/schemas/PagoUsuario"
+
+    PagoPropioDetalle:
+      type: object
+      description: Pago visible para el cliente dueno del pedido, sin datos del personal interno.
+      required: [id, pedido_id, monto, fecha_pago, metodo_pago]
+      properties:
+        id:
+          type: integer
+        pedido_id:
+          type: integer
+        monto:
+          type: number
+          format: double
+        referencia:
+          type: string
+          nullable: true
+        fecha_pago:
+          type: string
+          format: date-time
+        metodo_pago:
+          $ref: "#/components/schemas/MetodoPago"
 
     ReporteVentas:
       type: object

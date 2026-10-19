@@ -23,13 +23,24 @@ type PagoRepository struct{ db *pgxpool.Pool }
 func NewPagoRepository(db *pgxpool.Pool) *PagoRepository { return &PagoRepository{db: db} }
 
 func (r *PagoRepository) GetSaldo(ctx context.Context, pedidoID int) (*models.SaldoPedido, error) {
+	return r.getSaldo(ctx, pedidoID, 0)
+}
+
+// GetSaldoCliente exige la pertenencia del pedido en la misma consulta. Un
+// pedido ajeno se trata como inexistente para evitar revelar identificadores.
+func (r *PagoRepository) GetSaldoCliente(ctx context.Context, pedidoID, clienteID int) (*models.SaldoPedido, error) {
+	return r.getSaldo(ctx, pedidoID, clienteID)
+}
+
+func (r *PagoRepository) getSaldo(ctx context.Context, pedidoID, clienteID int) (*models.SaldoPedido, error) {
 	saldo := &models.SaldoPedido{PedidoID: pedidoID}
 	err := r.db.QueryRow(ctx, `
 		SELECT p.total, COALESCE(SUM(pg.monto), 0)
 		FROM pedidos p
 		LEFT JOIN pagos pg ON pg.pedido_id = p.id
 		WHERE p.id = $1 AND p.activo = TRUE
-		GROUP BY p.id, p.total`, pedidoID).Scan(&saldo.Total, &saldo.TotalPagado)
+		  AND ($2 = 0 OR p.cliente_id = $2)
+		GROUP BY p.id, p.total`, pedidoID, clienteID).Scan(&saldo.Total, &saldo.TotalPagado)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrPedidoNoEncontrado
 	}
@@ -43,8 +54,21 @@ func (r *PagoRepository) GetSaldo(ctx context.Context, pedidoID int) (*models.Sa
 }
 
 func (r *PagoRepository) ListByPedido(ctx context.Context, pedidoID int) ([]models.PagoDetalle, error) {
+	return r.listByPedido(ctx, pedidoID, 0)
+}
+
+// ListByPedidoCliente limita el historial al cliente dueno del pedido.
+func (r *PagoRepository) ListByPedidoCliente(ctx context.Context, pedidoID, clienteID int) ([]models.PagoDetalle, error) {
+	return r.listByPedido(ctx, pedidoID, clienteID)
+}
+
+func (r *PagoRepository) listByPedido(ctx context.Context, pedidoID, clienteID int) ([]models.PagoDetalle, error) {
 	var existe bool
-	if err := r.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pedidos WHERE id = $1 AND activo = TRUE)`, pedidoID).Scan(&existe); err != nil {
+	if err := r.db.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM pedidos
+			WHERE id = $1 AND activo = TRUE AND ($2 = 0 OR cliente_id = $2)
+		)`, pedidoID, clienteID).Scan(&existe); err != nil {
 		return nil, fmt.Errorf("error verificando pedido para historial de pagos: %w", err)
 	}
 	if !existe {

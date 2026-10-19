@@ -16,6 +16,7 @@ type fakePagoRepository struct {
 	err         error
 	saldo       *models.SaldoPedido
 	pagos       []models.PagoDetalle
+	clienteID   int
 }
 
 func (r *fakePagoRepository) ListByPedido(_ context.Context, _ int) ([]models.PagoDetalle, error) {
@@ -25,11 +26,21 @@ func (r *fakePagoRepository) ListByPedido(_ context.Context, _ int) ([]models.Pa
 	return r.pagos, nil
 }
 
+func (r *fakePagoRepository) ListByPedidoCliente(_ context.Context, _ int, clienteID int) ([]models.PagoDetalle, error) {
+	r.clienteID = clienteID
+	return r.ListByPedido(context.Background(), 0)
+}
+
 func (r *fakePagoRepository) GetSaldo(_ context.Context, _ int) (*models.SaldoPedido, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
 	return r.saldo, nil
+}
+
+func (r *fakePagoRepository) GetSaldoCliente(_ context.Context, _ int, clienteID int) (*models.SaldoPedido, error) {
+	r.clienteID = clienteID
+	return r.GetSaldo(context.Background(), 0)
 }
 
 func (r *fakePagoRepository) Create(_ context.Context, pedidoID int, req *models.PagoCreateRequest, usuarioID int) (*models.PagoDetalle, error) {
@@ -161,5 +172,37 @@ func TestPagoServiceObtenerHistorial(t *testing.T) {
 	}
 	if len(pagos) != 2 || pagos[1].ID != 2 {
 		t.Fatalf("historial inesperado: %+v", pagos)
+	}
+}
+
+func TestPagoServiceConsultasClienteUsanIdentidadYOcultanUsuario(t *testing.T) {
+	referencia := "TRX-9"
+	repo := &fakePagoRepository{
+		saldo: &models.SaldoPedido{PedidoID: 3, Total: 100, TotalPagado: 35, SaldoPendiente: 65},
+		pagos: []models.PagoDetalle{{
+			Pago:       models.Pago{ID: 8, PedidoID: 3, UsuarioID: 99, Monto: 35, Referencia: &referencia},
+			MetodoPago: models.MetodoPago{ID: 2, Nombre: "Transferencia"},
+			Usuario:    &models.PagoUsuario{ID: 99, Nombre: "Empleado"},
+		}},
+	}
+	service := NewPagoService(repo)
+
+	saldo, err := service.ObtenerSaldoCliente(context.Background(), 3, 42)
+	if err != nil || saldo.SaldoPendiente != 65 || repo.clienteID != 42 {
+		t.Fatalf("saldo=%+v clienteID=%d error=%v", saldo, repo.clienteID, err)
+	}
+	pagos, err := service.ObtenerHistorialCliente(context.Background(), 3, 42)
+	if err != nil || len(pagos) != 1 || pagos[0].ID != 8 || pagos[0].MetodoPago.Nombre != "Transferencia" {
+		t.Fatalf("pagos=%+v error=%v", pagos, err)
+	}
+}
+
+func TestPagoServiceConsultasClienteRechazanIdentidadInvalida(t *testing.T) {
+	service := NewPagoService(&fakePagoRepository{})
+	if _, err := service.ObtenerSaldoCliente(context.Background(), 3, 0); !errors.Is(err, repository.ErrClienteNoEncontrado) {
+		t.Fatalf("ObtenerSaldoCliente() error=%v", err)
+	}
+	if _, err := service.ObtenerHistorialCliente(context.Background(), 0, 42); !errors.Is(err, repository.ErrPedidoNoEncontrado) {
+		t.Fatalf("ObtenerHistorialCliente() error=%v", err)
 	}
 }
