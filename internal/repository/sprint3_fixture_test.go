@@ -24,7 +24,7 @@ type sprint3Fixture struct {
 	services                 []int
 }
 
-func newSprint3Fixture(t *testing.T) *sprint3Fixture {
+func newSprint3Fixture(t *testing.T, beforePricing ...bool) *sprint3Fixture {
 	t.Helper()
 	dsn := os.Getenv("SELAVA_TEST_DATABASE_URL")
 	if dsn == "" {
@@ -63,6 +63,9 @@ func newSprint3Fixture(t *testing.T) *sprint3Fixture {
 		t.Fatal("no se encontraron migraciones")
 	}
 	for _, file := range files {
+		if len(beforePricing) > 0 && beforePricing[0] && strings.HasPrefix(filepath.Base(file), "023_") {
+			continue
+		}
 		sql, readErr := os.ReadFile(file)
 		mustSprint3(t, readErr)
 		if _, err = db.Exec(ctx, string(sql)); err != nil {
@@ -72,7 +75,11 @@ func newSprint3Fixture(t *testing.T) *sprint3Fixture {
 	f := &sprint3Fixture{db: db, ctx: ctx}
 	mustSprint3(t, db.QueryRow(ctx, `INSERT INTO usuarios(rol_id,nombre,apellido,email,password_hash,telefono) VALUES(1,'Usuario','Prueba','sprint3@test.local','test-only','00000000') RETURNING id`).Scan(&f.userID))
 	mustSprint3(t, db.QueryRow(ctx, `INSERT INTO clientes(nombre,apellido,telefono) VALUES('Cliente','Prueba','00000000') RETURNING id`).Scan(&f.clientID))
-	mustSprint3(t, db.QueryRow(ctx, `INSERT INTO tipos_prenda(nombre) VALUES('Camisa') RETURNING id`).Scan(&f.typeID))
+	typeSQL := "INSERT INTO tipos_prenda(nombre,precio) VALUES('Camisa',10.25) RETURNING id"
+	if len(beforePricing) > 0 && beforePricing[0] {
+		typeSQL = "INSERT INTO tipos_prenda(nombre) VALUES('Camisa') RETURNING id"
+	}
+	mustSprint3(t, db.QueryRow(ctx, typeSQL).Scan(&f.typeID))
 	for i, price := range []float64{10.25, 5.50, 2} {
 		var id int
 		mustSprint3(t, db.QueryRow(ctx, `INSERT INTO servicios(nombre,precio_base) VALUES($1,$2) RETURNING id`, fmt.Sprintf("Servicio %d", i), price).Scan(&id))

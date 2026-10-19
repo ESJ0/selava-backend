@@ -38,7 +38,7 @@ func (r *fakeTipoPrendaRepository) Create(ctx context.Context, req *models.TipoP
 		}
 	}
 	now := time.Now()
-	tipo := models.TipoPrenda{ID: r.nextID, Nombre: req.Nombre, Descripcion: req.Descripcion, Activo: true, CreatedAt: now, UpdatedAt: now}
+	tipo := models.TipoPrenda{ID: r.nextID, Nombre: req.Nombre, Descripcion: req.Descripcion, Precio: req.Precio, Activo: true, CreatedAt: now, UpdatedAt: now}
 	r.tipos[tipo.ID] = tipo
 	r.nextID++
 	return &tipo, nil
@@ -73,6 +73,9 @@ func (r *fakeTipoPrendaRepository) Update(ctx context.Context, id int, req *mode
 	if req.Nombre != nil {
 		tp.Nombre = *req.Nombre
 	}
+	if req.Precio != nil {
+		tp.Precio = req.Precio
+	}
 	r.tipos[id] = tp
 	return &tp, nil
 }
@@ -94,7 +97,7 @@ func tipoPrendaControllerFixture(id int, nombre string) models.TipoPrenda {
 
 func TestTipoPrendaControllerCrearReturnsCreated(t *testing.T) {
 	controller := newTipoPrendaControllerForTest()
-	req := httptest.NewRequest(http.MethodPost, "/api/tipos-prenda", strings.NewReader(`{"nombre":"Camisa"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/tipos-prenda", strings.NewReader(`{"nombre":"Camisa","precio":25}`))
 	res := httptest.NewRecorder()
 
 	controller.Crear(res, req)
@@ -125,7 +128,7 @@ func TestTipoPrendaControllerCrearRejectsNombreVacio(t *testing.T) {
 
 func TestTipoPrendaControllerCrearReturnsConflictOnDuplicateNombre(t *testing.T) {
 	controller := newTipoPrendaControllerForTest(tipoPrendaControllerFixture(1, "Camisa"))
-	req := httptest.NewRequest(http.MethodPost, "/api/tipos-prenda", strings.NewReader(`{"nombre":"Camisa"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/tipos-prenda", strings.NewReader(`{"nombre":"Camisa","precio":25}`))
 	res := httptest.NewRecorder()
 
 	controller.Crear(res, req)

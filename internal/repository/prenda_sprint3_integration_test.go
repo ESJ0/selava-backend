@@ -14,24 +14,24 @@ func TestSprint3ServiciosTotalYPersistencia(t *testing.T) {
 	f.total(t, p.ID, 51.25)
 	relation, err := r.AddServicio(f.ctx, p.Prendas[0].ID, f.services[1])
 	mustSprint3(t, err)
-	if relation.PrecioAplicado != 5.50 {
-		t.Fatalf("precio debe provenir del catalogo: %+v", relation)
+	if relation.PrecioAplicado != 0 {
+		t.Fatalf("servicio nuevo no debe sumar recargo: %+v", relation)
 	}
 	var price float64
 	mustSprint3(t, f.db.QueryRow(f.ctx, `SELECT precio_aplicado FROM prenda_servicios WHERE id=$1`, relation.ID).Scan(&price))
-	if price != 5.50 {
+	if price != 0 {
 		t.Fatalf("precio persistido=%v", price)
 	}
-	f.total(t, p.ID, 62.25)
+	f.total(t, p.ID, 51.25)
 	_, err = f.db.Exec(f.ctx, `UPDATE servicios SET precio_base=999 WHERE id=$1`, f.services[1])
 	mustSprint3(t, err)
-	// El precio aplicado es una instantanea: cambiar el catalogo no cambia el pedido.
+	// Cambiar asociaciones o precios de servicios no cambia la tarifa congelada de las prendas.
 	mustSprint3(t, r.RemoveServicio(f.ctx, p.Prendas[0].ID, f.services[0]))
-	f.total(t, p.ID, 41.75)
+	f.total(t, p.ID, 51.25)
 	mustSprint3(t, r.RemoveServicio(f.ctx, p.Prendas[0].ID, f.services[1]))
-	f.total(t, p.ID, 30.75)
+	f.total(t, p.ID, 51.25)
 	mustSprint3(t, r.RemoveServicio(f.ctx, p.Prendas[1].ID, f.services[0]))
-	f.total(t, p.ID, 0)
+	f.total(t, p.ID, 51.25)
 }
 
 func TestSprint3ServiciosRechazosNoAlteranTotal(t *testing.T) {

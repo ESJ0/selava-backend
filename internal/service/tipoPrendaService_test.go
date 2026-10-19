@@ -41,6 +41,7 @@ func (r *fakeTipoPrendaRepo) Create(ctx context.Context, req *models.TipoPrendaC
 		ID:          r.nextID,
 		Nombre:      req.Nombre,
 		Descripcion: req.Descripcion,
+		Precio:      req.Precio,
 		Activo:      true,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -87,6 +88,9 @@ func (r *fakeTipoPrendaRepo) Update(ctx context.Context, id int, req *models.Tip
 	if req.Descripcion != nil {
 		tp.Descripcion = req.Descripcion
 	}
+	if req.Precio != nil {
+		tp.Precio = req.Precio
+	}
 	if req.Activo != nil {
 		tp.Activo = *req.Activo
 	}
@@ -114,7 +118,7 @@ func TestTipoPrendaServiceCrearTrimsAndPersists(t *testing.T) {
 	repo := newFakeTipoPrendaRepo()
 	service := NewTipoPrendaService(repo)
 
-	tipo, err := service.CrearTipoPrenda(context.Background(), &models.TipoPrendaCreateRequest{Nombre: " Camisa "})
+	tipo, err := service.CrearTipoPrenda(context.Background(), &models.TipoPrendaCreateRequest{Nombre: " Camisa ", Precio: priceForTest(25)})
 	if err != nil {
 		t.Fatalf("CrearTipoPrenda returned error: %v", err)
 	}
@@ -166,7 +170,7 @@ func TestTipoPrendaServiceCrearRejectsNombreDuplicado(t *testing.T) {
 	repo := newFakeTipoPrendaRepo(tipoPrendaFixture(1, "Camisa"))
 	service := NewTipoPrendaService(repo)
 
-	_, err := service.CrearTipoPrenda(context.Background(), &models.TipoPrendaCreateRequest{Nombre: "Camisa"})
+	_, err := service.CrearTipoPrenda(context.Background(), &models.TipoPrendaCreateRequest{Nombre: "Camisa", Precio: priceForTest(25)})
 	if !errors.Is(err, repository.ErrNombreTipoPrendaEnUso) {
 		t.Fatalf("expected ErrNombreTipoPrendaEnUso, got %v", err)
 	}
@@ -209,3 +213,5 @@ func TestTipoPrendaServiceEliminarNotFound(t *testing.T) {
 		t.Fatalf("expected ErrTipoPrendaNoEncontrado, got %v", err)
 	}
 }
+
+func priceForTest(value float64) *float64 { return &value }

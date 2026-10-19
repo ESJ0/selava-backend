@@ -176,7 +176,7 @@ func TestServicioServiceCrearServicioRejectsPrecioInvalido(t *testing.T) {
 	repo := newFakeServicioRepo()
 	service := NewServicioService(repo)
 
-	_, err := service.CrearServicio(context.Background(), &models.ServicioCreateRequest{Nombre: "Planchado", PrecioBase: 0})
+	_, err := service.CrearServicio(context.Background(), &models.ServicioCreateRequest{Nombre: "Planchado", PrecioBase: -1})
 
 	var validationErrors validator.ValidationErrors
 	if !errors.As(err, &validationErrors) {
