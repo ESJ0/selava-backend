@@ -153,7 +153,7 @@ func TestFlujoRegistroYLoginCliente(t *testing.T) {
 	}
 
 	protegido := ejecutarJSON(router, http.MethodGet, "/api/cliente/me", "", token)
-	if protegido.Code != http.StatusOK || !strings.Contains(protegido.Body.String(), `"cliente_id":`+strconv.Itoa(clienteID)) {
+	if protegido.Code != http.StatusOK || !strings.Contains(protegido.Body.String(), `"id":`+strconv.Itoa(clienteID)) {
 		t.Fatalf("acceso protegido status=%d body=%s", protegido.Code, protegido.Body.String())
 	}
 }
