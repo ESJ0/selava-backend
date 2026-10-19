@@ -56,3 +56,13 @@ Pruebas: `go test ./...`. Para incluir PostgreSQL, configura
 `SELAVA_TEST_DATABASE_URL` apuntando a una base cuyo nombre termine en `_test`.
 La infraestructura existente crea un esquema aislado por prueba, aplica las
 migraciones reales y lo elimina al terminar; no usa la base de desarrollo.
+
+## Precios por tipo de prenda (SEL-107)
+
+El precio operativo pertenece a `tipos_prenda.precio`. El CRUD exige precio positivo
+con hasta dos decimales al crear, y lo devuelve al consultar/listar.
+`GET /api/public/tipos-prenda` devuelve solo activos con precio configurado, sin JWT.
+`servicios.precio_base` queda deprecado y opcional por compatibilidad.
+Las prendas nuevas guardan su tarifa en `prendas.precio_aplicado` y los servicios
+no agregan recargos. Los pedidos anteriores conservan todos sus importes.
+Consultar [migracion y compatibilidad SEL-107](documentos/sel-107-precios.md).
