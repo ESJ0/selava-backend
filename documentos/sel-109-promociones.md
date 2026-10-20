@@ -72,11 +72,13 @@ del tipo y cotización del servidor en el resumen. El total no se habilita para
 guardar hasta recibir una cotización válida. Se pueden actualizar cotizaciones
 y quitar una selección que haya dejado de ser elegible.
 
-Cliente parte de main, como se solicitó. Main contiene autenticación, pedidos,
-pagos y SEL-107; aún no incluye el PR #13 de SEL-108 que existe en develop.
-SEL-109 no integra ni reimplementa ese PR: agrega exclusivamente el desglose
-persistido de promociones y evita mostrar una multiplicación normal engañosa
-en las prendas incluidas. Los pedidos sin promociones conservan su presentación.
-La promoción posterior de SEL-108 de develop a main es trabajo separado.
+Cliente parte de main, como se solicitó. El correctivo
+[SEL-108 #15](https://github.com/ESJ0/selava-cliente-frontend/pull/15) incorporó a
+main únicamente los dos commits originales de SEL-108 #13 mediante cherry-pick,
+conservando autenticación, pedidos, pagos y SEL-107. La rama publicada SEL-109
+se actualiza mediante merge de ese main, sin reescribir sus commits existentes.
+El detalle conserva medida, modalidad, tarifa y subtotal congelados; en prendas
+promocionadas identifica el subtotal normal y muestra por separado la promoción
+persistida. No reconstruye importes desde el catálogo ni calcula dinero localmente.
 
 Los PRs de SEL-109 deben permanecer abiertos, sin merge ni auto-merge.
