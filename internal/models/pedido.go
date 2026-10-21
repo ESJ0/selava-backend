@@ -22,6 +22,7 @@ type Pedido struct {
 // registrar un pedido. El usuario y el estado inicial los determina el
 // backend a partir del token y del catalogo de estados, respectivamente.
 type PedidoCreateRequest struct {
+	Promociones          []PromocionSeleccion  `json:"promociones,omitempty"`
 	ClienteID            int                   `json:"cliente_id"`
 	FechaEntregaEstimada *time.Time            `json:"fecha_entrega_estimada,omitempty"`
 	Observaciones        *string               `json:"observaciones,omitempty"`
@@ -32,7 +33,8 @@ type PedidoCreateRequest struct {
 // el pedido junto con las prendas que quedaron registradas.
 type PedidoConPrendas struct {
 	Pedido
-	Prendas []Prenda `json:"prendas"`
+	PromocionesAplicadas []PromocionAplicada `json:"promociones_aplicadas"`
+	Prendas              []Prenda            `json:"prendas"`
 }
 
 // EstadoPedido representa el estado del catalogo asociado a un pedido.
@@ -47,8 +49,9 @@ type EstadoPedido struct {
 // PedidoDetalle contiene toda la informacion relacionada con un pedido.
 type PedidoDetalle struct {
 	Pedido
-	Cliente      Cliente       `json:"cliente"`
-	Prendas      []Prenda      `json:"prendas"`
-	EstadoActual EstadoPedido  `json:"estado_actual"`
-	Pagos        []PagoDetalle `json:"pagos"`
+	PromocionesAplicadas []PromocionAplicada `json:"promociones_aplicadas"`
+	Cliente              Cliente             `json:"cliente"`
+	Prendas              []Prenda            `json:"prendas"`
+	EstadoActual         EstadoPedido        `json:"estado_actual"`
+	Pagos                []PagoDetalle       `json:"pagos"`
 }

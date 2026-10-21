@@ -66,3 +66,13 @@ con hasta dos decimales al crear, y lo devuelve al consultar/listar.
 Las prendas nuevas guardan su tarifa en `prendas.precio_aplicado` y los servicios
 no agregan recargos. Los pedidos anteriores conservan todos sus importes.
 Consultar [migracion y compatibilidad SEL-107](documentos/sel-107-precios.md).
+
+## Promociones (SEL-109)
+
+La migración aditiva `025_promociones` incorpora el catálogo y los snapshots de
+promociones aplicadas. Administrador gestiona `/api/promociones/`; Administrador
+y Recepcionista consultan y usan `POST /api/pedidos/cotizacion` para previsualizar
+paquetes. El alta de pedido acepta `promociones: [{tipo_prenda_id, promocion_id}]`
+y vuelve a validar todos los importes, medidas y vigencias al guardar.
+Los detalles administrativos y propios incluyen `promociones_aplicadas`.
+Consultar [cálculo exacto, contrato e históricos](documentos/sel-109-promociones.md).

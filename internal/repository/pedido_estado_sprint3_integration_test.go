@@ -13,7 +13,10 @@ func TestSprint3ActualizarEstadoRegistraHistorialCompleto(t *testing.T) {
 	p := f.order(t)
 	r := NewPedidoRepository(f.db)
 	note := "  inició proceso  "
-	start := time.Now().Add(-time.Second)
+	// La fecha del historial procede de PostgreSQL; Docker y Windows pueden
+	// tener relojes distintos. Comparar contra la misma fuente temporal.
+	var start time.Time
+	mustSprint3(t, f.db.QueryRow(f.ctx, `SELECT clock_timestamp()`).Scan(&start))
 	h, err := r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Rackeado"), Observaciones: &note}, f.userID)
 	mustSprint3(t, err)
 	if h.PedidoID != p.ID || h.UsuarioID != f.userID || h.EstadoID != f.state(t, "Rackeado") || h.FechaCambio.Before(start) {

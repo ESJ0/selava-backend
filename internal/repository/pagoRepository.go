@@ -121,11 +121,11 @@ func (r *PagoRepository) Create(ctx context.Context, pedidoID int, req *models.P
 	var total, pagado float64
 	var estado string
 	err = tx.QueryRow(ctx, `
-		SELECT p.total, e.nombre, COALESCE((SELECT SUM(pg.monto) FROM pagos pg WHERE pg.pedido_id = p.id), 0)
+		SELECT p.total, e.nombre
 		FROM pedidos p
 		JOIN estados_pedido e ON e.id = p.estado_actual_id
 		WHERE p.id = $1 AND p.activo = TRUE
-		FOR UPDATE OF p`, pedidoID).Scan(&total, &estado, &pagado)
+		FOR UPDATE OF p`, pedidoID).Scan(&total, &estado)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrPedidoNoEncontrado
 	}
@@ -134,6 +134,13 @@ func (r *PagoRepository) Create(ctx context.Context, pedidoID int, req *models.P
 	}
 	if estado == "Cancelado" {
 		return nil, ErrPagoPedidoCancelado
+	}
+	// En READ COMMITTED, el snapshot de la consulta que espera FOR UPDATE
+	// puede ser anterior al pago que acaba de liberar el bloqueo. Consultar
+	// los pagos en una nueva sentencia, ya con el pedido bloqueado, permite
+	// ver ese commit antes de validar el saldo del siguiente pago.
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE pedido_id = $1`, pedidoID).Scan(&pagado); err != nil {
+		return nil, fmt.Errorf("error consultando pagos del pedido bloqueado: %w", err)
 	}
 	saldo := math.Round((total-pagado)*100) / 100
 	if saldo <= 0 {
