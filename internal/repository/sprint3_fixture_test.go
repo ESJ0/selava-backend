@@ -42,6 +42,7 @@ func newSprint3Fixture(t *testing.T, beforePricing ...bool) *sprint3Fixture {
 	_, err = admin.Exec(ctx, "CREATE SCHEMA "+schema)
 	mustSprint3(t, err)
 	config.ConnConfig.RuntimeParams["search_path"] = schema
+	config.ConnConfig.RuntimeParams["application_name"] = schema
 	config.MaxConns = 4
 	db, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {

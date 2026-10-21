@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/ESJ0/selava-backend/internal/models"
 )
@@ -105,6 +106,15 @@ func TestSprint4PagosConcurrentesNoExcedenSaldo(t *testing.T) {
 	repo := NewPagoRepository(f.db)
 	methodID := sprint4PaymentMethod(t, f, "Concurrent method")
 	order := f.order(t, 1)
+	// Fuerza que ambos pagos esperen el mismo bloqueo antes de leer el saldo.
+	// Asi la prueba detecta snapshots obsoletos incluso en una maquina rapida.
+	blocker, err := f.db.Begin(f.ctx)
+	mustSprint3(t, err)
+	defer blocker.Rollback(f.ctx)
+	_, err = blocker.Exec(f.ctx, `SELECT id FROM pedidos WHERE id=$1 FOR UPDATE`, order.ID)
+	mustSprint3(t, err)
+	var applicationName string
+	mustSprint3(t, f.db.QueryRow(f.ctx, `SHOW application_name`).Scan(&applicationName))
 	errorsChannel := make(chan error, 2)
 
 	for range 2 {
@@ -113,6 +123,19 @@ func TestSprint4PagosConcurrentesNoExcedenSaldo(t *testing.T) {
 			errorsChannel <- err
 		}()
 	}
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		var waiting int
+		mustSprint3(t, f.db.QueryRow(f.ctx, `SELECT count(*) FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock'`, applicationName).Scan(&waiting))
+		if waiting == 2 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("solo %d pagos llegaron al bloqueo concurrente", waiting)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	mustSprint3(t, blocker.Commit(f.ctx))
 
 	successes := 0
 	overpayments := 0
