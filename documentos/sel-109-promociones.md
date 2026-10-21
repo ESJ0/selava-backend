@@ -81,4 +81,13 @@ El detalle conserva medida, modalidad, tarifa y subtotal congelados; en prendas
 promocionadas identifica el subtotal normal y muestra por separado la promoción
 persistida. No reconstruye importes desde el catálogo ni calcula dinero localmente.
 
-Los PRs de SEL-109 deben permanecer abiertos, sin merge ni auto-merge.
+Para el cierre autorizado del Sprint 6, las ramas destino son `develop` en
+backend/admin y `main` en cliente. La integración se realiza manualmente,
+después de validar los tres componentes, sin activar auto-merge ni cambiar
+la rama principal del cliente. Esta autorización sustituye la etapa anterior
+de mantener los PRs abiertos para revisión.
+
+El registro de pagos bloquea el pedido antes de consultar los pagos acumulados
+en una nueva sentencia de la misma transacción. Así un segundo pago concurrente
+ve el pago que acaba de confirmarse y no puede exceder el saldo. La regresión
+PostgreSQL fuerza ambas solicitudes a esperar el bloqueo para verificarlo.
