@@ -985,7 +985,8 @@ paths:
       description: >
         Actualiza el estado del pedido y registra en el historial el usuario
         autenticado, la fecha del cambio y las observaciones opcionales. Ambas
-        operaciones se realizan en una sola transaccion.
+        operaciones se realizan en una sola transaccion. Solo acepta el
+        `siguiente_estado` del `flujo_operativo` devuelto en el detalle.
       parameters:
         - name: pedidoID
           in: path
@@ -1028,7 +1029,7 @@ paths:
         "422":
           $ref: "#/components/responses/ErrorValidacion"
         "409":
-          description: El cambio retrocede el estado, el pedido ya fue entregado/cancelado o se intentó cancelar mediante este endpoint
+          description: La etapa no es la siguiente aplicable, el pedido ya fue finalizado/cancelado o se intentó cancelar mediante este endpoint
           content:
             application/json:
               schema:
@@ -1042,9 +1043,10 @@ paths:
       x-roles: [Administrador, Recepcionista, Operario]
       summary: Lista el catalogo de estados de pedido
       description: >
-        Devuelve los estados ordenados por `orden`. El flujo configurado es
-        Recibido (1), Rackeado (2), Entregado (3), con Cancelado (99) como
-        salida excepcional. Requiere JWT y admite cualquiera de los tres roles.
+        Devuelve el catálogo ordenado. Las etapas condicionales solo forman
+        parte del flujo de un pedido cuando uno de sus servicios las habilita.
+        Cancelado es una salida excepcional. Requiere JWT y admite cualquiera
+        de los tres roles.
       responses:
         "200":
           description: Catalogo ordenado de estados
@@ -1055,10 +1057,11 @@ paths:
                 items:
                   $ref: "#/components/schemas/EstadoPedido"
               example:
-                - { id: 1, nombre: Recibido, orden: 1, created_at: "2026-09-07T15:00:00Z", updated_at: "2026-09-07T15:00:00Z" }
-                - { id: 3, nombre: Rackeado, orden: 2, created_at: "2026-09-07T15:00:00Z", updated_at: "2026-09-07T15:00:00Z" }
-                - { id: 4, nombre: Entregado, orden: 3, created_at: "2026-09-07T15:00:00Z", updated_at: "2026-09-07T15:00:00Z" }
-                - { id: 2, nombre: Cancelado, orden: 99, created_at: "2026-09-07T15:00:00Z", updated_at: "2026-09-07T15:00:00Z" }
+                - { id: 1, nombre: Recibido, codigo: RECIBIDO, orden: 10, es_obligatorio: true, es_terminal: false, es_cancelacion: false }
+                - { id: 5, nombre: En lavado, codigo: EN_LAVADO, orden: 20, es_obligatorio: false, es_terminal: false, es_cancelacion: false }
+                - { id: 3, nombre: Rackeado, codigo: RACKEADO, orden: 50, es_obligatorio: true, es_terminal: false, es_cancelacion: false }
+                - { id: 4, nombre: Finalizado, codigo: FINALIZADO, orden: 60, es_obligatorio: true, es_terminal: true, es_cancelacion: false }
+                - { id: 2, nombre: Cancelado, codigo: CANCELADO, orden: 99, es_obligatorio: false, es_terminal: true, es_cancelacion: true }
         "401":
           $ref: "#/components/responses/NoAutenticado"
         "500":
@@ -2305,7 +2308,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/Pedido"
         - type: object
-          required: [cliente, prendas, estado_actual, pagos]
+          required: [cliente, prendas, estado_actual, pagos, flujo_operativo]
           properties:
             promociones_aplicadas: { type: array, items: { $ref: "#/components/schemas/PromocionAplicada" } }
             cliente:
@@ -2320,6 +2323,8 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/PagoDetalle"
+            flujo_operativo:
+              $ref: "#/components/schemas/FlujoOperativoPedido"
 
     EstadoPedido:
       type: object
@@ -2328,14 +2333,56 @@ components:
           type: integer
         nombre:
           type: string
+        codigo:
+          type: string
         orden:
           type: integer
+        es_obligatorio:
+          type: boolean
+        es_terminal:
+          type: boolean
+        es_cancelacion:
+          type: boolean
         created_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
+
+    EstadoFlujoPedido:
+      allOf:
+        - $ref: "#/components/schemas/EstadoPedido"
+        - type: object
+          required: [servicios, completado, actual]
+          properties:
+            servicios:
+              type: array
+              items:
+                type: object
+                required: [id, nombre]
+                properties:
+                  id: { type: integer }
+                  nombre: { type: string }
+            completado: { type: boolean }
+            actual: { type: boolean }
+
+    FlujoOperativoPedido:
+      type: object
+      required: [estados, progreso_porcentaje, cancelado]
+      properties:
+        estados:
+          type: array
+          items:
+            $ref: "#/components/schemas/EstadoFlujoPedido"
+        siguiente_estado:
+          $ref: "#/components/schemas/EstadoPedido"
+        progreso_porcentaje:
+          type: integer
+          minimum: 0
+          maximum: 100
+        cancelado:
+          type: boolean
 
     PedidoCreateRequest:
       type: object
