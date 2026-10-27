@@ -153,7 +153,7 @@ func servePedidoCrear(controller *PedidoController, req *http.Request) *httptest
 
 func authenticatedPedidoEstadoRequest(t *testing.T, body string) *http.Request {
 	t.Helper()
-	token, err := auth.GenerateToken(pedidoTestSecret, 7, middleware.RolOperario)
+	token, err := auth.GenerateToken(pedidoTestSecret, 7, middleware.RolAdministrador)
 	if err != nil {
 		t.Fatalf("generating token: %v", err)
 	}
@@ -391,6 +391,15 @@ func TestPedidoControllerActualizarEstadoReturnsNotFound(t *testing.T) {
 func TestPedidoControllerActualizarEstadoReturnsConflictOnRetroceso(t *testing.T) {
 	controller := newPedidoControllerForTest(repository.ErrPedidoEstadoRetrocedido)
 	res := servePedidoActualizarEstado(controller, authenticatedPedidoEstadoRequest(t, `{"estado_id":1}`))
+
+	if res.Code != http.StatusConflict {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusConflict, res.Code, res.Body.String())
+	}
+}
+
+func TestPedidoControllerActualizarEstadoReturnsConflictOnTransicionNoPermitida(t *testing.T) {
+	controller := newPedidoControllerForTest(repository.ErrTransicionEstadoNoPermitida)
+	res := servePedidoActualizarEstado(controller, authenticatedPedidoEstadoRequest(t, `{"estado_id":4}`))
 
 	if res.Code != http.StatusConflict {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusConflict, res.Code, res.Body.String())

@@ -69,6 +69,7 @@ func TestSprint3EstadoRechazaRetrocesoYTerminalesSinEfectosParciales(t *testing.
 		want  error
 	}{
 		{"retroceso", f.state(t, "Recibido"), ErrPedidoEstadoRetrocedido},
+		{"repeticion", f.state(t, "Rackeado"), ErrTransicionEstadoNoPermitida},
 		{"cancelado por endpoint de estado", f.state(t, "Cancelado"), ErrCambioEstadoCanceladoNoPermitido},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

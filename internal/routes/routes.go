@@ -123,7 +123,7 @@ func newRouter(clienteController *controller.ClienteController, servicioControll
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Get("/{pedidoID}/pagos", pagoController.ObtenerHistorial)
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Get("/{pedidoID}/saldo", pagoController.ObtenerSaldo)
 		r.Get("/{pedidoID}/historial-estados", pedidoController.ObtenerHistorialEstados)
-		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista, authmiddleware.RolOperario)).Put("/{pedidoID}/estado", pedidoController.ActualizarEstado)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Put("/{pedidoID}/estado", pedidoController.ActualizarEstado)
 	})
 
 	r.Route("/api/prendas", func(r chi.Router) {
@@ -136,9 +136,9 @@ func newRouter(clienteController *controller.ClienteController, servicioControll
 
 	r.Route("/api/estados-pedido", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
-		// Sin restriccion de rol adicional: los 3 roles necesitan leer este
-		// catalogo (Operario para el selector de cambio de estado, todos
-		// para mostrar nombres en el detalle y el historial del pedido).
+		// Sin restriccion de rol adicional: los 3 roles pueden consultar el
+		// catalogo para mostrar nombres y progreso. Solo Administrador y
+		// Recepcionista pueden ejecutar el cambio de estado del pedido.
 		r.Get("/", estadoPedidoController.Listar)
 	})
 
