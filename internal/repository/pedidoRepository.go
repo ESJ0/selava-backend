@@ -148,30 +148,15 @@ func (r *PedidoRepository) UpdateEstado(ctx context.Context, pedidoID int, req *
 		return nil, fmt.Errorf("error actualizando estado del pedido: %w", err)
 	}
 
-	const query = `
-		INSERT INTO pedido_estados_historial (
-			pedido_id, estado_id, usuario_id, observaciones
-		)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, pedido_id, estado_id, usuario_id,
-		          fecha_cambio, observaciones, created_at`
-	var historial models.PedidoEstadoHistorial
-	err = tx.QueryRow(ctx, query, pedidoID, req.EstadoID, usuarioID, req.Observaciones).Scan(
-		&historial.ID, &historial.PedidoID, &historial.EstadoID,
-		&historial.UsuarioID, &historial.FechaCambio,
-		&historial.Observaciones, &historial.CreatedAt,
-	)
+	historial, err := registrarCambioEstado(ctx, tx, pedidoID, req.EstadoID, usuarioID, req.Observaciones)
 	if err != nil {
-		if mappedErr := pedidoEstadoHistorialForeignKeyError(err); mappedErr != nil {
-			return nil, mappedErr
-		}
-		return nil, fmt.Errorf("error registrando historial del pedido: %w", err)
+		return nil, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("error confirmando cambio de estado: %w", err)
 	}
-	return &historial, nil
+	return historial, nil
 }
 
 func validarTransicionEstadoPedido(actual, destino models.EstadoPedido) error {
@@ -454,14 +439,9 @@ func (r *PedidoRepository) Cancelar(ctx context.Context, pedidoID, usuarioID int
 		return nil, fmt.Errorf("error actualizando pedido cancelado: %w", err)
 	}
 
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO pedido_estados_historial (pedido_id, estado_id, usuario_id, observaciones)
-		VALUES ($1, $2, $3, $4)`,
-		pedidoID, estadoCanceladoID, usuarioID, "Pedido cancelado"); err != nil {
-		if mappedErr := pedidoEstadoHistorialForeignKeyError(err); mappedErr != nil {
-			return nil, mappedErr
-		}
-		return nil, fmt.Errorf("error registrando cancelacion en el historial: %w", err)
+	observacionCancelacion := "Pedido cancelado"
+	if _, err := registrarCambioEstado(ctx, tx, pedidoID, estadoCanceladoID, usuarioID, &observacionCancelacion); err != nil {
+		return nil, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -538,15 +518,9 @@ func (r *PedidoRepository) insertPedido(ctx context.Context, tx pgx.Tx, req *mod
 		}
 		return nil, fmt.Errorf("error creando pedido: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO pedido_estados_historial (pedido_id, estado_id, usuario_id, observaciones)
-		VALUES ($1, $2, $3, 'Pedido recibido')`,
-		pedido.ID, pedido.EstadoActualID, usuarioID,
-	); err != nil {
-		if mappedErr := pedidoEstadoHistorialForeignKeyError(err); mappedErr != nil {
-			return nil, mappedErr
-		}
-		return nil, fmt.Errorf("error registrando estado inicial del pedido: %w", err)
+	observacionInicial := "Pedido recibido"
+	if _, err := registrarCambioEstado(ctx, tx, pedido.ID, pedido.EstadoActualID, usuarioID, &observacionInicial); err != nil {
+		return nil, err
 	}
 	return &pedido, nil
 }
