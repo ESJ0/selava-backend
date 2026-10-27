@@ -48,6 +48,7 @@ Los servicios futuros no se infieren por coincidencias parciales: deben relacion
 - Cada cambio actualiza el pedido y crea el historial en la misma transacción y bajo bloqueo del pedido.
 - Al alcanzar `Finalizado`, el backend registra `fecha_entrega_real`.
 - La creación registra `Recibido` como primera entrada del historial.
+- Solo `Administrador` y `Recepcionista` pueden ejecutar el cambio; `Operario` conserva acceso de lectura al catálogo, detalle e historial, pero recibe `403` al intentar actualizar.
 
 ## Contrato para Admin
 

@@ -980,7 +980,7 @@ paths:
   /api/pedidos/{pedidoID}/estado:
     put:
       tags: [Pedidos]
-      x-roles: [Administrador, Recepcionista, Operario]
+      x-roles: [Administrador, Recepcionista]
       summary: Actualiza el estado actual de un pedido
       description: >
         Actualiza el estado del pedido y registra en el historial el usuario
