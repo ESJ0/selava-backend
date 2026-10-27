@@ -26,13 +26,13 @@ func TestSprint3CancelarRecibidoActualizaEstadoEHistorial(t *testing.T) {
 	}
 	history, err := r.GetHistorialEstados(f.ctx, p.ID)
 	mustSprint3(t, err)
-	if len(history) != 1 || history[0].Estado.Nombre != "Cancelado" || history[0].Usuario.ID != f.userID || history[0].FechaCambio.IsZero() {
+	if len(history) != 2 || history[0].Estado.Nombre != "Recibido" || history[1].Estado.Nombre != "Cancelado" || history[1].Usuario.ID != f.userID || history[1].FechaCambio.IsZero() {
 		t.Fatalf("historial de cancelación: %+v", history)
 	}
 }
 
 func TestSprint3CancelarRechazaTodosLosEstadosNoRecibidos(t *testing.T) {
-	for _, state := range []string{"Rackeado", "Entregado", "Cancelado"} {
+	for _, state := range []string{"Rackeado", "Finalizado", "Cancelado"} {
 		t.Run(state, func(t *testing.T) {
 			f := newSprint3Fixture(t)
 			p := f.order(t)
@@ -40,7 +40,10 @@ func TestSprint3CancelarRechazaTodosLosEstadosNoRecibidos(t *testing.T) {
 			if state == "Cancelado" {
 				_, _ = r.Cancelar(f.ctx, p.ID, f.userID)
 			} else {
-				_, _ = r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, state)}, f.userID)
+				_, _ = r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Rackeado")}, f.userID)
+				if state == "Finalizado" {
+					_, _ = r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, state)}, f.userID)
+				}
 			}
 			_, err := r.Cancelar(f.ctx, p.ID, f.userID)
 			if !errors.Is(err, ErrPedidoNoCancelable) {

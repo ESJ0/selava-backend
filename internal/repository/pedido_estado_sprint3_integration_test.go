@@ -2,6 +2,7 @@ package repository
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -29,33 +30,29 @@ func TestSprint3ActualizarEstadoRegistraHistorialCompleto(t *testing.T) {
 	}
 	history, err := r.GetHistorialEstados(f.ctx, p.ID)
 	mustSprint3(t, err)
-	if len(history) != 1 || history[0].Estado.Nombre != "Rackeado" || history[0].Usuario.Nombre != "Usuario" || history[0].Usuario.Apellido != "Prueba" {
+	if len(history) != 2 || history[0].Estado.Nombre != "Recibido" || history[1].Estado.Nombre != "Rackeado" || history[1].Usuario.Nombre != "Usuario" || history[1].Usuario.Apellido != "Prueba" {
 		t.Fatalf("historial enriquecido inesperado: %+v", history)
 	}
 }
 
-func TestSprint3HistorialCronologicoYSaltoAdelantePermitido(t *testing.T) {
+func TestSprint3HistorialCronologicoYSaltoAdelanteRechazado(t *testing.T) {
 	f := newSprint3Fixture(t)
 	p := f.order(t)
 	r := NewPedidoRepository(f.db)
-	// La regla integrada permite saltar estados hacia adelante; la prueba fija
-	// el contrato real en vez de inventar una secuencia más restrictiva.
-	_, err := r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Entregado")}, f.userID)
+	_, err := r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Finalizado")}, f.userID)
+	if !errors.Is(err, ErrTransicionEstadoNoPermitida) {
+		t.Fatalf("salto inesperadamente permitido: %v", err)
+	}
+	_, err = r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Rackeado")}, f.userID)
 	mustSprint3(t, err)
-	var older, newer time.Time
-	mustSprint3(t, f.db.QueryRow(f.ctx, `SELECT fecha_cambio FROM pedido_estados_historial WHERE pedido_id=$1`, p.ID).Scan(&older))
-	_, err = f.db.Exec(f.ctx, `UPDATE pedido_estados_historial SET fecha_cambio=$1 WHERE pedido_id=$2`, older.Add(time.Hour), p.ID)
-	mustSprint3(t, err)
-	// Agregamos una entrada histórica anterior para comprobar orden estable.
-	_, err = f.db.Exec(f.ctx, `INSERT INTO pedido_estados_historial(pedido_id,estado_id,usuario_id,fecha_cambio) VALUES($1,$2,$3,$4)`, p.ID, f.state(t, "Recibido"), f.userID, older)
+	_, err = r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Finalizado")}, f.userID)
 	mustSprint3(t, err)
 	history, err := r.GetHistorialEstados(f.ctx, p.ID)
 	mustSprint3(t, err)
-	if len(history) != 2 || history[0].Estado.Nombre != "Recibido" || history[1].Estado.Nombre != "Entregado" {
+	if len(history) != 3 || history[0].Estado.Nombre != "Recibido" || history[1].Estado.Nombre != "Rackeado" || history[2].Estado.Nombre != "Finalizado" {
 		t.Fatalf("orden inesperado: %+v", history)
 	}
-	newer = history[1].FechaCambio
-	if newer.Before(history[0].FechaCambio) {
+	if history[2].FechaCambio.Before(history[1].FechaCambio) || history[1].FechaCambio.Before(history[0].FechaCambio) {
 		t.Fatal("historial no está en orden cronológico")
 	}
 }
@@ -83,19 +80,19 @@ func TestSprint3EstadoRechazaRetrocesoYTerminalesSinEfectosParciales(t *testing.
 	}
 	var count int
 	mustSprint3(t, f.db.QueryRow(f.ctx, `SELECT COUNT(*) FROM pedido_estados_historial WHERE pedido_id=$1`, p.ID).Scan(&count))
-	if count != 1 {
+	if count != 2 {
 		t.Fatalf("rechazos dejaron historial: %d", count)
 	}
-	_, err = r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Entregado")}, f.userID)
+	_, err = r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Finalizado")}, f.userID)
 	mustSprint3(t, err)
-	_, err = r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Entregado")}, f.userID)
+	_, err = r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Finalizado")}, f.userID)
 	if !errors.Is(err, ErrPedidoEstadoFinalizado) {
-		t.Fatalf("entregado: %v", err)
+		t.Fatalf("finalizado: %v", err)
 	}
 	cancelled := f.order(t)
 	_, err = r.Cancelar(f.ctx, cancelled.ID, f.userID)
 	mustSprint3(t, err)
-	_, err = r.UpdateEstado(f.ctx, cancelled.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Entregado")}, f.userID)
+	_, err = r.UpdateEstado(f.ctx, cancelled.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Finalizado")}, f.userID)
 	if !errors.Is(err, ErrPedidoCancelado) {
 		t.Fatalf("cancelado: %v", err)
 	}
@@ -121,4 +118,41 @@ func TestSprint3EstadoRechazaPedidoEstadoYUsuarioInexistentes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSEL110FlujoIncluyeSoloEtapasDeServiciosContratados(t *testing.T) {
+	f := newSprint3Fixture(t)
+	var lavadoID int
+	mustSprint3(t, f.db.QueryRow(f.ctx,
+		`INSERT INTO servicios(nombre, precio_base) VALUES('Lavado', 1) RETURNING id`,
+	).Scan(&lavadoID))
+
+	p, err := NewPedidoRepository(f.db).Create(f.ctx, &models.PedidoCreateRequest{
+		ClienteID: f.clientID,
+		Prendas: []models.PrendaCreateRequest{{
+			TipoPrendaID: f.typeID,
+			Cantidad:     1,
+			Servicios:    []models.PrendaServicioCreateRequest{{ServicioID: lavadoID}},
+		}},
+	}, f.userID)
+	mustSprint3(t, err)
+
+	r := NewPedidoRepository(f.db)
+	detail, err := r.GetDetalle(f.ctx, p.ID)
+	mustSprint3(t, err)
+	nombres := make([]string, 0, len(detail.FlujoOperativo.Estados))
+	for _, estado := range detail.FlujoOperativo.Estados {
+		nombres = append(nombres, estado.Nombre)
+	}
+	want := []string{"Recibido", "En lavado", "Rackeado", "Finalizado"}
+	if fmt.Sprint(nombres) != fmt.Sprint(want) || detail.FlujoOperativo.SiguienteEstado == nil || detail.FlujoOperativo.SiguienteEstado.Nombre != "En lavado" || detail.FlujoOperativo.ProgresoPorcentaje != 25 {
+		t.Fatalf("flujo inesperado: nombres=%v flujo=%+v", nombres, detail.FlujoOperativo)
+	}
+
+	_, err = r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Rackeado")}, f.userID)
+	if !errors.Is(err, ErrTransicionEstadoNoPermitida) {
+		t.Fatalf("permitió saltar etapa de lavado: %v", err)
+	}
+	_, err = r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "En lavado")}, f.userID)
+	mustSprint3(t, err)
 }
