@@ -157,3 +157,53 @@ func TestSEL110FlujoIncluyeSoloEtapasDeServiciosContratados(t *testing.T) {
 	_, err = r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "En lavado")}, f.userID)
 	mustSprint3(t, err)
 }
+
+func TestSEL110HistorialRegistraCadaCambioConFechaYUsuarioResponsable(t *testing.T) {
+	f := newSprint3Fixture(t)
+	var segundoUsuarioID int
+	mustSprint3(t, f.db.QueryRow(f.ctx, `
+		INSERT INTO usuarios(rol_id,nombre,apellido,email,password_hash,telefono)
+		VALUES(2,'Otra','Recepcionista','trazabilidad@test.local','test-only','00000001')
+		RETURNING id`).Scan(&segundoUsuarioID))
+
+	p := f.order(t)
+	r := NewPedidoRepository(f.db)
+	observacionRack := "Prendas colocadas en rack"
+	_, err := r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{
+		EstadoID: f.state(t, "Rackeado"), Observaciones: &observacionRack,
+	}, f.userID)
+	mustSprint3(t, err)
+	_, err = r.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{
+		EstadoID: f.state(t, "Finalizado"),
+	}, segundoUsuarioID)
+	mustSprint3(t, err)
+
+	historial, err := r.GetHistorialEstados(f.ctx, p.ID)
+	mustSprint3(t, err)
+	if len(historial) != 3 {
+		t.Fatalf("se esperaban recepción y dos cambios, se obtuvo %+v", historial)
+	}
+	esperados := []struct {
+		estado    string
+		usuarioID int
+	}{
+		{estado: "Recibido", usuarioID: f.userID},
+		{estado: "Rackeado", usuarioID: f.userID},
+		{estado: "Finalizado", usuarioID: segundoUsuarioID},
+	}
+	for i, esperado := range esperados {
+		movimiento := historial[i]
+		if movimiento.Estado.Nombre != esperado.estado || movimiento.UsuarioID != esperado.usuarioID || movimiento.Usuario.ID != esperado.usuarioID {
+			t.Fatalf("movimiento %d sin estado/usuario esperado: %+v", i, movimiento)
+		}
+		if movimiento.FechaCambio.IsZero() || movimiento.CreatedAt.IsZero() {
+			t.Fatalf("movimiento %d sin fecha y hora: %+v", i, movimiento)
+		}
+		if i > 0 && movimiento.FechaCambio.Before(historial[i-1].FechaCambio) {
+			t.Fatalf("historial fuera de orden cronológico: %+v", historial)
+		}
+	}
+	if historial[1].Observaciones == nil || *historial[1].Observaciones != observacionRack {
+		t.Fatalf("observación de transición no persistida: %+v", historial[1])
+	}
+}
