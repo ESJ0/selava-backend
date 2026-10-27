@@ -50,6 +50,19 @@ Los servicios futuros no se infieren por coincidencias parciales: deben relacion
 - La creación registra `Recibido` como primera entrada del historial.
 - Solo `Administrador` y `Recepcionista` pueden ejecutar el cambio; `Operario` conserva acceso de lectura al catálogo, detalle e historial, pero recibe `403` al intentar actualizar.
 
+## SEL-110.6–110.8 — Trazabilidad del historial
+
+La recepción inicial, cada transición operativa y la cancelación utilizan un
+único punto de escritura del historial. El backend persiste en la misma
+transacción el pedido, el estado alcanzado, la fecha y hora obtenida de
+PostgreSQL y el identificador del usuario autenticado. Ninguno de esos datos de
+auditoría se acepta desde el cuerpo de la petición.
+
+La consulta interna del historial resuelve también el nombre y apellido del
+responsable y ordena los movimientos por `fecha_cambio` e `id`. El endpoint de
+clientes conserva la fecha y las observaciones, pero omite la identidad del
+personal interno.
+
 ## Contrato para Admin
 
 `GET /api/pedidos/{id}` incluye `flujo_operativo` con:

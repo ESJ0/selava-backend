@@ -2424,6 +2424,7 @@ components:
 
     PedidoEstadoHistorial:
       type: object
+      description: Registro generado por el servidor para cada estado alcanzado; la fecha y el usuario no se reciben del cliente.
       properties:
         id:
           type: integer
@@ -2433,9 +2434,11 @@ components:
           type: integer
         usuario_id:
           type: integer
+          description: Usuario interno autenticado que realizó la transición.
         fecha_cambio:
           type: string
           format: date-time
+          description: Fecha y hora asignadas por PostgreSQL al persistir el cambio.
         observaciones:
           type: string
           nullable: true
