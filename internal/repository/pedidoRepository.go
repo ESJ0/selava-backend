@@ -17,9 +17,10 @@ var (
 	ErrEstadoPedidoCanceladoNoEncontrado = errors.New("estado cancelado de pedido no encontrado")
 	ErrPedidoNoCancelable                = errors.New("el pedido no se puede cancelar en su estado actual")
 	ErrPedidoEstadoRetrocedido           = errors.New("no se permite retroceder el estado del pedido")
-	ErrPedidoEstadoFinalizado            = errors.New("el pedido ya fue entregado y no puede cambiar de estado")
+	ErrPedidoEstadoFinalizado            = errors.New("el pedido ya fue finalizado y no puede cambiar de estado")
 	ErrPedidoCancelado                   = errors.New("el pedido ya esta cancelado y no puede cambiar de estado")
 	ErrCambioEstadoCanceladoNoPermitido  = errors.New("el estado Cancelado solo puede establecerse mediante la cancelacion del pedido")
+	ErrTransicionEstadoNoPermitida       = errors.New("solo se permite avanzar a la siguiente etapa aplicable del pedido")
 )
 
 type PedidoRepository struct {
@@ -89,13 +90,19 @@ func (r *PedidoRepository) UpdateEstado(ctx context.Context, pedidoID int, req *
 
 	var estadoActual models.EstadoPedido
 	if err := tx.QueryRow(ctx,
-		`SELECT e.id, e.nombre, e.orden
+		`SELECT e.id, e.nombre, e.codigo, e.orden,
+		        e.es_obligatorio, e.es_terminal, e.es_cancelacion,
+		        e.created_at, e.updated_at
 		 FROM pedidos p
 		 JOIN estados_pedido e ON e.id = p.estado_actual_id
 		 WHERE p.id = $1 AND p.activo = TRUE
 		 FOR UPDATE OF p`,
 		pedidoID,
-	).Scan(&estadoActual.ID, &estadoActual.Nombre, &estadoActual.Orden); err != nil {
+	).Scan(
+		&estadoActual.ID, &estadoActual.Nombre, &estadoActual.Codigo, &estadoActual.Orden,
+		&estadoActual.EsObligatorio, &estadoActual.EsTerminal, &estadoActual.EsCancelacion,
+		&estadoActual.CreatedAt, &estadoActual.UpdatedAt,
+	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrPedidoNoEncontrado
 		}
@@ -104,9 +111,15 @@ func (r *PedidoRepository) UpdateEstado(ctx context.Context, pedidoID int, req *
 
 	var estadoDestino models.EstadoPedido
 	if err := tx.QueryRow(ctx,
-		`SELECT id, nombre, orden FROM estados_pedido WHERE id = $1 FOR KEY SHARE`,
+		`SELECT id, nombre, codigo, orden, es_obligatorio, es_terminal,
+		        es_cancelacion, created_at, updated_at
+		 FROM estados_pedido WHERE id = $1 FOR KEY SHARE`,
 		req.EstadoID,
-	).Scan(&estadoDestino.ID, &estadoDestino.Nombre, &estadoDestino.Orden); err != nil {
+	).Scan(
+		&estadoDestino.ID, &estadoDestino.Nombre, &estadoDestino.Codigo, &estadoDestino.Orden,
+		&estadoDestino.EsObligatorio, &estadoDestino.EsTerminal, &estadoDestino.EsCancelacion,
+		&estadoDestino.CreatedAt, &estadoDestino.UpdatedAt,
+	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrEstadoPedidoDestinoNoEncontrado
 		}
@@ -116,10 +129,21 @@ func (r *PedidoRepository) UpdateEstado(ctx context.Context, pedidoID int, req *
 	if err := validarTransicionEstadoPedido(estadoActual, estadoDestino); err != nil {
 		return nil, err
 	}
+	flujo, err := cargarFlujoOperativo(ctx, tx, pedidoID, estadoActual)
+	if err != nil {
+		return nil, err
+	}
+	if flujo.SiguienteEstado == nil || flujo.SiguienteEstado.ID != estadoDestino.ID {
+		return nil, ErrTransicionEstadoNoPermitida
+	}
 
 	if _, err := tx.Exec(ctx,
-		`UPDATE pedidos SET estado_actual_id = $1, updated_at = NOW() WHERE id = $2`,
-		req.EstadoID, pedidoID,
+		`UPDATE pedidos
+		 SET estado_actual_id = $1,
+		     fecha_entrega_real = CASE WHEN $3 THEN NOW() ELSE fecha_entrega_real END,
+		     updated_at = NOW()
+		 WHERE id = $2`,
+		req.EstadoID, pedidoID, estadoDestino.EsTerminal,
 	); err != nil {
 		return nil, fmt.Errorf("error actualizando estado del pedido: %w", err)
 	}
@@ -152,11 +176,11 @@ func (r *PedidoRepository) UpdateEstado(ctx context.Context, pedidoID int, req *
 
 func validarTransicionEstadoPedido(actual, destino models.EstadoPedido) error {
 	switch {
-	case actual.Nombre == "Entregado":
-		return ErrPedidoEstadoFinalizado
-	case actual.Nombre == "Cancelado":
+	case actual.EsCancelacion || actual.Codigo == "CANCELADO" || actual.Nombre == "Cancelado":
 		return ErrPedidoCancelado
-	case destino.Nombre == "Cancelado":
+	case actual.EsTerminal || actual.Codigo == "FINALIZADO" || actual.Nombre == "Finalizado" || actual.Nombre == "Entregado":
+		return ErrPedidoEstadoFinalizado
+	case destino.EsCancelacion || destino.Codigo == "CANCELADO" || destino.Nombre == "Cancelado":
 		return ErrCambioEstadoCanceladoNoPermitido
 	case destino.Orden < actual.Orden:
 		return ErrPedidoEstadoRetrocedido
@@ -200,7 +224,9 @@ func (r *PedidoRepository) getHistorialEstados(ctx context.Context, pedidoID, cl
 	const query = `
 		SELECT h.id, h.pedido_id, h.estado_id, h.usuario_id,
 		       h.fecha_cambio, h.observaciones, h.created_at,
-		       e.id, e.nombre, e.orden, e.created_at, e.updated_at,
+		       e.id, e.nombre, e.codigo, e.orden,
+		       e.es_obligatorio, e.es_terminal, e.es_cancelacion,
+		       e.created_at, e.updated_at,
 		       u.id, u.nombre, u.apellido
 		FROM pedido_estados_historial h
 		JOIN estados_pedido e ON e.id = h.estado_id
@@ -220,7 +246,9 @@ func (r *PedidoRepository) getHistorialEstados(ctx context.Context, pedidoID, cl
 			&movimiento.ID, &movimiento.PedidoID, &movimiento.EstadoID,
 			&movimiento.UsuarioID, &movimiento.FechaCambio,
 			&movimiento.Observaciones, &movimiento.CreatedAt,
-			&movimiento.Estado.ID, &movimiento.Estado.Nombre, &movimiento.Estado.Orden,
+			&movimiento.Estado.ID, &movimiento.Estado.Nombre, &movimiento.Estado.Codigo,
+			&movimiento.Estado.Orden, &movimiento.Estado.EsObligatorio,
+			&movimiento.Estado.EsTerminal, &movimiento.Estado.EsCancelacion,
 			&movimiento.Estado.CreatedAt, &movimiento.Estado.UpdatedAt,
 			&movimiento.Usuario.ID, &movimiento.Usuario.Nombre, &movimiento.Usuario.Apellido,
 		); err != nil {
@@ -262,7 +290,9 @@ func (r *PedidoRepository) getDetalle(ctx context.Context, pedidoID, clienteID i
 		       c.id, c.nombre, c.apellido, c.telefono,
 		       COALESCE(c.email, ''), COALESCE(c.direccion, ''),
 		       c.activo, c.created_at, c.updated_at,
-		       e.id, e.nombre, e.orden, e.created_at, e.updated_at
+		       e.id, e.nombre, e.codigo, e.orden,
+		       e.es_obligatorio, e.es_terminal, e.es_cancelacion,
+		       e.created_at, e.updated_at
 		FROM pedidos p
 		JOIN clientes c ON c.id = p.cliente_id
 		JOIN estados_pedido e ON e.id = p.estado_actual_id
@@ -276,7 +306,9 @@ func (r *PedidoRepository) getDetalle(ctx context.Context, pedidoID, clienteID i
 		&detalle.Cliente.ID, &detalle.Cliente.Nombre, &detalle.Cliente.Apellido,
 		&detalle.Cliente.Telefono, &detalle.Cliente.Email, &detalle.Cliente.Direccion,
 		&detalle.Cliente.Activo, &detalle.Cliente.CreatedAt, &detalle.Cliente.UpdatedAt,
-		&detalle.EstadoActual.ID, &detalle.EstadoActual.Nombre, &detalle.EstadoActual.Orden,
+		&detalle.EstadoActual.ID, &detalle.EstadoActual.Nombre, &detalle.EstadoActual.Codigo,
+		&detalle.EstadoActual.Orden, &detalle.EstadoActual.EsObligatorio,
+		&detalle.EstadoActual.EsTerminal, &detalle.EstadoActual.EsCancelacion,
 		&detalle.EstadoActual.CreatedAt, &detalle.EstadoActual.UpdatedAt,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -358,6 +390,10 @@ func (r *PedidoRepository) getDetalle(ctx context.Context, pedidoID, clienteID i
 	rows.Close()
 
 	detalle.PromocionesAplicadas, err = cargarPromociones(ctx, tx, pedidoID)
+	if err != nil {
+		return nil, err
+	}
+	detalle.FlujoOperativo, err = cargarFlujoOperativo(ctx, tx, pedidoID, detalle.EstadoActual)
 	if err != nil {
 		return nil, err
 	}
@@ -501,6 +537,16 @@ func (r *PedidoRepository) insertPedido(ctx context.Context, tx pgx.Tx, req *mod
 			return nil, mappedErr
 		}
 		return nil, fmt.Errorf("error creando pedido: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO pedido_estados_historial (pedido_id, estado_id, usuario_id, observaciones)
+		VALUES ($1, $2, $3, 'Pedido recibido')`,
+		pedido.ID, pedido.EstadoActualID, usuarioID,
+	); err != nil {
+		if mappedErr := pedidoEstadoHistorialForeignKeyError(err); mappedErr != nil {
+			return nil, mappedErr
+		}
+		return nil, fmt.Errorf("error registrando estado inicial del pedido: %w", err)
 	}
 	return &pedido, nil
 }

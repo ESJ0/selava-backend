@@ -246,6 +246,8 @@ func (pc *PedidoController) handleServiceError(w http.ResponseWriter, err error)
 		respondError(w, http.StatusConflict, err.Error())
 	case errors.Is(err, repository.ErrPedidoEstadoRetrocedido):
 		respondError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, repository.ErrTransicionEstadoNoPermitida):
+		respondError(w, http.StatusConflict, err.Error())
 	case errors.Is(err, repository.ErrPedidoEstadoFinalizado):
 		respondError(w, http.StatusConflict, err.Error())
 	case errors.Is(err, repository.ErrPedidoCancelado):

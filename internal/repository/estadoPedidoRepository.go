@@ -17,10 +17,11 @@ func NewEstadoPedidoRepository(db *pgxpool.Pool) *EstadoPedidoRepository {
 }
 
 // List devuelve el catalogo completo de estados de pedido, ordenado por
-// su orden de flujo (Recibido, Rackeado, Entregado, ..., Cancelado al final).
+// su orden de flujo, con las banderas que definen el comportamiento operativo.
 func (r *EstadoPedidoRepository) List(ctx context.Context) ([]models.EstadoPedido, error) {
 	const query = `
-		SELECT id, nombre, orden, created_at, updated_at
+		SELECT id, nombre, codigo, orden, es_obligatorio, es_terminal,
+		       es_cancelacion, created_at, updated_at
 		FROM estados_pedido
 		ORDER BY orden`
 
@@ -33,7 +34,11 @@ func (r *EstadoPedidoRepository) List(ctx context.Context) ([]models.EstadoPedid
 	estados := make([]models.EstadoPedido, 0)
 	for rows.Next() {
 		var estado models.EstadoPedido
-		if err := rows.Scan(&estado.ID, &estado.Nombre, &estado.Orden, &estado.CreatedAt, &estado.UpdatedAt); err != nil {
+		if err := rows.Scan(
+			&estado.ID, &estado.Nombre, &estado.Codigo, &estado.Orden,
+			&estado.EsObligatorio, &estado.EsTerminal, &estado.EsCancelacion,
+			&estado.CreatedAt, &estado.UpdatedAt,
+		); err != nil {
 			return nil, fmt.Errorf("error leyendo catalogo de estados de pedido: %w", err)
 		}
 		estados = append(estados, estado)

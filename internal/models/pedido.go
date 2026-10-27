@@ -39,19 +39,47 @@ type PedidoConPrendas struct {
 
 // EstadoPedido representa el estado del catalogo asociado a un pedido.
 type EstadoPedido struct {
-	ID        int       `json:"id"`
-	Nombre    string    `json:"nombre"`
-	Orden     int       `json:"orden"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID            int       `json:"id"`
+	Nombre        string    `json:"nombre"`
+	Codigo        string    `json:"codigo"`
+	Orden         int       `json:"orden"`
+	EsObligatorio bool      `json:"es_obligatorio"`
+	EsTerminal    bool      `json:"es_terminal"`
+	EsCancelacion bool      `json:"es_cancelacion"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// ServicioEtapa resume el servicio contratado que hace aplicable una etapa.
+type ServicioEtapa struct {
+	ID     int    `json:"id"`
+	Nombre string `json:"nombre"`
+}
+
+// EstadoFlujoPedido agrega el avance y los servicios que originan cada etapa.
+type EstadoFlujoPedido struct {
+	EstadoPedido
+	Servicios  []ServicioEtapa `json:"servicios"`
+	Completado bool            `json:"completado"`
+	Actual     bool            `json:"actual"`
+}
+
+// FlujoOperativoPedido es el plan inmutable en significado, pero calculado a
+// partir de los servicios que realmente fueron contratados por el pedido.
+type FlujoOperativoPedido struct {
+	Estados            []EstadoFlujoPedido `json:"estados"`
+	SiguienteEstado    *EstadoPedido       `json:"siguiente_estado,omitempty"`
+	ProgresoPorcentaje int                 `json:"progreso_porcentaje"`
+	Cancelado          bool                `json:"cancelado"`
 }
 
 // PedidoDetalle contiene toda la informacion relacionada con un pedido.
 type PedidoDetalle struct {
 	Pedido
-	PromocionesAplicadas []PromocionAplicada `json:"promociones_aplicadas"`
-	Cliente              Cliente             `json:"cliente"`
-	Prendas              []Prenda            `json:"prendas"`
-	EstadoActual         EstadoPedido        `json:"estado_actual"`
-	Pagos                []PagoDetalle       `json:"pagos"`
+	PromocionesAplicadas []PromocionAplicada  `json:"promociones_aplicadas"`
+	Cliente              Cliente              `json:"cliente"`
+	Prendas              []Prenda             `json:"prendas"`
+	EstadoActual         EstadoPedido         `json:"estado_actual"`
+	Pagos                []PagoDetalle        `json:"pagos"`
+	FlujoOperativo       FlujoOperativoPedido `json:"flujo_operativo"`
 }
