@@ -16,12 +16,15 @@ func NewReportePedidosEstadoRepository(db *pgxpool.Pool) *ReportePedidosEstadoRe
 
 func (r *ReportePedidosEstadoRepository) Get(ctx context.Context) (*models.ReportePedidosEstado, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT e.id, e.nombre, e.orden, e.created_at, e.updated_at, COUNT(p.id)
+		SELECT e.id, e.nombre, e.codigo, e.orden,
+		       e.es_obligatorio, e.es_terminal, e.es_cancelacion,
+		       e.created_at, e.updated_at, COUNT(p.id)
 		FROM estados_pedido e
 		LEFT JOIN pedidos p
 		       ON p.estado_actual_id = e.id
 		      AND p.activo = TRUE
-		GROUP BY e.id, e.nombre, e.orden, e.created_at, e.updated_at
+		GROUP BY e.id, e.nombre, e.codigo, e.orden, e.es_obligatorio,
+		         e.es_terminal, e.es_cancelacion, e.created_at, e.updated_at
 		ORDER BY e.orden, e.id`)
 	if err != nil {
 		return nil, fmt.Errorf("error consultando pedidos por estado: %w", err)
@@ -35,7 +38,9 @@ func (r *ReportePedidosEstadoRepository) Get(ctx context.Context) (*models.Repor
 		var cantidad int64
 		var item models.ReportePedidosEstadoDetalle
 		if err := rows.Scan(
-			&item.Estado.ID, &item.Estado.Nombre, &item.Estado.Orden,
+			&item.Estado.ID, &item.Estado.Nombre, &item.Estado.Codigo,
+			&item.Estado.Orden, &item.Estado.EsObligatorio,
+			&item.Estado.EsTerminal, &item.Estado.EsCancelacion,
 			&item.Estado.CreatedAt, &item.Estado.UpdatedAt, &cantidad,
 		); err != nil {
 			return nil, fmt.Errorf("error leyendo pedidos por estado: %w", err)

@@ -35,18 +35,18 @@ func (r *PrendaRepository) CreateMany(ctx context.Context, pedidoID int, reqs []
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var estadoNombre string
+	var estadoTerminal bool
 	if err := tx.QueryRow(ctx,
-		`SELECT e.nombre FROM pedidos p JOIN estados_pedido e ON e.id = p.estado_actual_id
+		`SELECT e.es_terminal FROM pedidos p JOIN estados_pedido e ON e.id = p.estado_actual_id
 		 WHERE p.id = $1 AND p.activo = TRUE FOR UPDATE OF p`,
 		pedidoID,
-	).Scan(&estadoNombre); err != nil {
+	).Scan(&estadoTerminal); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrPedidoNoEncontrado
 		}
 		return nil, fmt.Errorf("error verificando pedido: %w", err)
 	}
-	if estadoNombre == "Entregado" {
+	if estadoTerminal {
 		return nil, ErrPedidoEstadoFinalizado
 	}
 
@@ -160,7 +160,7 @@ func (r *PrendaRepository) RemoveServicio(ctx context.Context, prendaID, servici
 
 func lockPedidoDePrenda(ctx context.Context, tx pgx.Tx, prendaID int) (int, error) {
 	const query = `
-		SELECT p.pedido_id, e.nombre
+		SELECT p.pedido_id, e.es_terminal
 		FROM prendas p
 		JOIN pedidos pe ON pe.id = p.pedido_id
 		JOIN estados_pedido e ON e.id = pe.estado_actual_id
@@ -168,14 +168,14 @@ func lockPedidoDePrenda(ctx context.Context, tx pgx.Tx, prendaID int) (int, erro
 		FOR UPDATE OF p, pe`
 
 	var pedidoID int
-	var estadoNombre string
-	if err := tx.QueryRow(ctx, query, prendaID).Scan(&pedidoID, &estadoNombre); err != nil {
+	var estadoTerminal bool
+	if err := tx.QueryRow(ctx, query, prendaID).Scan(&pedidoID, &estadoTerminal); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, ErrPrendaNoEncontrada
 		}
 		return 0, fmt.Errorf("error verificando prenda: %w", err)
 	}
-	if estadoNombre == "Entregado" {
+	if estadoTerminal {
 		return 0, ErrPedidoEstadoFinalizado
 	}
 	return pedidoID, nil

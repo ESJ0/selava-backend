@@ -115,23 +115,26 @@ func TestSprint3CrearPedidoRollbackPorServicioInexistente(t *testing.T) {
 	}
 }
 
-func TestSprint3EntregadoNoPermiteCambiarPrendasOServicios(t *testing.T) {
+func TestSprint3FinalizadoNoPermiteCambiarPrendasOServicios(t *testing.T) {
 	f := newSprint3Fixture(t)
 	p := f.order(t)
-	_, err := NewPedidoRepository(f.db).UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Entregado")}, f.userID)
+	pedidos := NewPedidoRepository(f.db)
+	_, err := pedidos.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Rackeado")}, f.userID)
+	mustSprint3(t, err)
+	_, err = pedidos.UpdateEstado(f.ctx, p.ID, &models.PedidoEstadoUpdateRequest{EstadoID: f.state(t, "Finalizado")}, f.userID)
 	mustSprint3(t, err)
 	r := NewPrendaRepository(f.db)
 	_, err = r.AddServicio(f.ctx, p.Prendas[0].ID, f.services[1])
 	if !errors.Is(err, ErrPedidoEstadoFinalizado) {
-		t.Fatalf("agregar servicio a entregado: %v", err)
+		t.Fatalf("agregar servicio a finalizado: %v", err)
 	}
 	err = r.RemoveServicio(f.ctx, p.Prendas[0].ID, f.services[0])
 	if !errors.Is(err, ErrPedidoEstadoFinalizado) {
-		t.Fatalf("quitar servicio a entregado: %v", err)
+		t.Fatalf("quitar servicio a finalizado: %v", err)
 	}
 	_, err = r.CreateMany(f.ctx, p.ID, []models.PrendaCreateRequest{{TipoPrendaID: f.typeID, Cantidad: 1}})
 	if !errors.Is(err, ErrPedidoEstadoFinalizado) {
-		t.Fatalf("agregar prenda a entregado: %v", err)
+		t.Fatalf("agregar prenda a finalizado: %v", err)
 	}
 	f.total(t, p.ID, 20.50)
 }

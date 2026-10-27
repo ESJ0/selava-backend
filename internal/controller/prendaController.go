@@ -109,7 +109,7 @@ func (pc *PrendaController) handleServiceError(w http.ResponseWriter, err error)
 	case errors.Is(err, repository.ErrMedidaInvalidaModalidad):
 		respondJSON(w, http.StatusUnprocessableEntity, map[string]any{"errores": validator.ValidationErrors{{Field: "cantidad", Message: "debe ser un entero para modalidad UNIDAD"}}})
 	case errors.Is(err, repository.ErrPedidoEstadoFinalizado):
-		respondError(w, http.StatusConflict, "el pedido ya fue entregado y no puede modificarse")
+		respondError(w, http.StatusConflict, "el pedido ya fue finalizado y no puede modificarse")
 	case errors.Is(err, repository.ErrPedidoNoEncontrado):
 		respondError(w, http.StatusNotFound, "pedido no encontrado")
 	case errors.Is(err, repository.ErrPrendaNoEncontrada):
