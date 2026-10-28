@@ -150,6 +150,7 @@ func (s *PedidoService) ObtenerDetallePedidoCliente(ctx context.Context, pedidoI
 		FechaEntregaEstimada: detalle.FechaEntregaEstimada, FechaEntregaReal: detalle.FechaEntregaReal,
 		Total: detalle.Total, Observaciones: detalle.Observaciones, Prendas: detalle.Prendas,
 		EstadoActual:         detalle.EstadoActual,
+		FlujoOperativo:       detalle.FlujoOperativo,
 		PromocionesAplicadas: detalle.PromocionesAplicadas,
 	}, nil
 }
