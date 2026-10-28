@@ -253,6 +253,96 @@ func TestPedidoServiceListaPedidosDelClienteYSanitizaRespuesta(t *testing.T) {
 	}
 }
 
+type seguimientoClienteRepo struct {
+	*fakePedidoRepo
+}
+
+func (r *seguimientoClienteRepo) List(_ context.Context, filter models.PedidoListFilter) (*models.PedidoListResponse, error) {
+	r.lastCliente = filter.ClienteID
+	return &models.PedidoListResponse{
+		Pedidos: []models.PedidoResumen{{
+			ID: 7,
+			EstadoActual: models.PedidoEstadoResumen{
+				ID: 2, Nombre: "En lavado", Orden: 20,
+			},
+		}},
+		Total: 1, Pagina: filter.Pagina, Limite: filter.Limite,
+	}, nil
+}
+
+func (r *seguimientoClienteRepo) GetDetalleCliente(_ context.Context, pedidoID, clienteID int) (*models.PedidoDetalle, error) {
+	r.lastCliente = clienteID
+	estadoActual := models.EstadoPedido{ID: 2, Nombre: "En lavado", Codigo: "EN_LAVADO", Orden: 20}
+	return &models.PedidoDetalle{
+		Pedido:       models.Pedido{ID: pedidoID},
+		EstadoActual: estadoActual,
+		Prendas:      []models.Prenda{},
+		FlujoOperativo: models.FlujoOperativoPedido{
+			Estados: []models.EstadoFlujoPedido{
+				{EstadoPedido: models.EstadoPedido{ID: 1, Nombre: "Recibido", Codigo: "RECIBIDO", Orden: 10}, Servicios: []models.ServicioEtapa{}, Completado: true},
+				{EstadoPedido: estadoActual, Servicios: []models.ServicioEtapa{{ID: 5, Nombre: "Lavado"}}, Completado: true, Actual: true},
+				{EstadoPedido: models.EstadoPedido{ID: 3, Nombre: "Finalizado", Codigo: "FINALIZADO", Orden: 60}, Servicios: []models.ServicioEtapa{}},
+			},
+			SiguienteEstado:    &models.EstadoPedido{ID: 3, Nombre: "Finalizado", Codigo: "FINALIZADO", Orden: 60},
+			ProgresoPorcentaje: 66,
+		},
+	}, nil
+}
+
+func (r *seguimientoClienteRepo) GetHistorialEstadosCliente(_ context.Context, pedidoID, clienteID int) ([]models.PedidoEstadoHistorialDetalle, error) {
+	r.lastCliente = clienteID
+	primero := time.Date(2026, time.October, 27, 8, 30, 0, 0, time.UTC)
+	segundo := primero.Add(2 * time.Hour)
+	return []models.PedidoEstadoHistorialDetalle{
+		{
+			PedidoEstadoHistorial: models.PedidoEstadoHistorial{ID: 1, PedidoID: pedidoID, UsuarioID: 91, FechaCambio: primero},
+			Estado:                models.EstadoPedido{ID: 1, Nombre: "Recibido", Codigo: "RECIBIDO", Orden: 10},
+			Usuario:               models.UsuarioResumen{ID: 91, Nombre: "Dato interno"},
+		},
+		{
+			PedidoEstadoHistorial: models.PedidoEstadoHistorial{ID: 2, PedidoID: pedidoID, UsuarioID: 92, FechaCambio: segundo},
+			Estado:                models.EstadoPedido{ID: 2, Nombre: "En lavado", Codigo: "EN_LAVADO", Orden: 20},
+			Usuario:               models.UsuarioResumen{ID: 92, Nombre: "Otro dato interno"},
+		},
+	}, nil
+}
+
+func TestPedidoServiceExponeSeguimientoCompletoAlCliente(t *testing.T) {
+	repo := &seguimientoClienteRepo{fakePedidoRepo: newFakePedidoRepo()}
+	service := NewPedidoService(repo)
+
+	listado, err := service.ListarPedidosCliente(context.Background(), 42, models.PedidoListRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listado.Pedidos) != 1 || listado.Pedidos[0].EstadoActual.Nombre != "En lavado" {
+		t.Fatalf("listado sin estado oficial: %+v", listado)
+	}
+
+	detalle, err := service.ObtenerDetallePedidoCliente(context.Background(), 7, 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detalle.EstadoActual.Codigo != "EN_LAVADO" || len(detalle.FlujoOperativo.Estados) != 3 {
+		t.Fatalf("detalle sin seguimiento: %+v", detalle)
+	}
+	etapaLavado := detalle.FlujoOperativo.Estados[1]
+	if !etapaLavado.Actual || len(etapaLavado.Servicios) != 1 || etapaLavado.Servicios[0].Nombre != "Lavado" {
+		t.Fatalf("etapa aplicable inesperada: %+v", etapaLavado)
+	}
+
+	historial, err := service.ObtenerHistorialEstadosCliente(context.Background(), 7, 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(historial) != 2 || historial[0].Estado.Nombre != "Recibido" || historial[1].Estado.Nombre != "En lavado" {
+		t.Fatalf("historial inesperado: %+v", historial)
+	}
+	if !historial[0].FechaCambio.Before(historial[1].FechaCambio) || repo.lastCliente != 42 {
+		t.Fatalf("historial fuera de orden o identidad incorrecta: historial=%+v cliente=%d", historial, repo.lastCliente)
+	}
+}
+
 func TestPedidoServiceRechazaIdentidadClienteInvalida(t *testing.T) {
 	service := NewPedidoService(newFakePedidoRepo())
 	if _, err := service.ListarPedidosCliente(context.Background(), 0, models.PedidoListRequest{}); !errors.Is(err, repository.ErrClienteNoEncontrado) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/ESJ0/selava-backend/internal/auth"
@@ -34,12 +35,22 @@ type pedidosClienteRouteRepo struct {
 
 func (r *pedidosClienteRouteRepo) List(_ context.Context, filter models.PedidoListFilter) (*models.PedidoListResponse, error) {
 	r.clienteID = filter.ClienteID
-	return &models.PedidoListResponse{Pedidos: []models.PedidoResumen{}, Pagina: filter.Pagina, Limite: filter.Limite}, nil
+	return &models.PedidoListResponse{Pedidos: []models.PedidoResumen{{
+		ID: 7, EstadoActual: models.PedidoEstadoResumen{ID: 1, Nombre: "Recibido", Orden: 10},
+	}}, Total: 1, Pagina: filter.Pagina, Limite: filter.Limite}, nil
 }
 
 func (r *pedidosClienteRouteRepo) GetDetalleCliente(_ context.Context, pedidoID, clienteID int) (*models.PedidoDetalle, error) {
 	r.clienteID = clienteID
-	return &models.PedidoDetalle{Pedido: models.Pedido{ID: pedidoID, UsuarioID: 99}, Prendas: []models.Prenda{}, Pagos: []models.PagoDetalle{}}, nil
+	estado := models.EstadoPedido{ID: 1, Nombre: "Recibido", Codigo: "RECIBIDO", Orden: 10}
+	return &models.PedidoDetalle{
+		Pedido: models.Pedido{ID: pedidoID, UsuarioID: 99}, Prendas: []models.Prenda{}, Pagos: []models.PagoDetalle{},
+		EstadoActual: estado,
+		FlujoOperativo: models.FlujoOperativoPedido{Estados: []models.EstadoFlujoPedido{
+			{EstadoPedido: estado, Servicios: []models.ServicioEtapa{}, Completado: true, Actual: true},
+			{EstadoPedido: models.EstadoPedido{ID: 2, Nombre: "En lavado", Codigo: "EN_LAVADO", Orden: 20}, Servicios: []models.ServicioEtapa{{ID: 8, Nombre: "Lavado"}}},
+		}},
+	}, nil
 }
 
 func (r *pedidosClienteRouteRepo) GetHistorialEstadosCliente(_ context.Context, pedidoID, clienteID int) ([]models.PedidoEstadoHistorialDetalle, error) {
@@ -48,6 +59,10 @@ func (r *pedidosClienteRouteRepo) GetHistorialEstadosCliente(_ context.Context, 
 		PedidoEstadoHistorial: models.PedidoEstadoHistorial{ID: 1, PedidoID: pedidoID, UsuarioID: 99},
 		Estado:                models.EstadoPedido{ID: 1, Nombre: "Recibido"},
 		Usuario:               models.UsuarioResumen{ID: 99, Nombre: "Empleado"},
+	}, {
+		PedidoEstadoHistorial: models.PedidoEstadoHistorial{ID: 2, PedidoID: pedidoID, UsuarioID: 98},
+		Estado:                models.EstadoPedido{ID: 2, Nombre: "En lavado"},
+		Usuario:               models.UsuarioResumen{ID: 98, Nombre: "Empleado dos"},
 	}}, nil
 }
 
@@ -83,6 +98,26 @@ func TestPedidosClienteUsanClienteIDDelToken(t *testing.T) {
 		}
 		if target != "/api/cliente/pedidos" && (containsJSONField(res.Body.String(), "usuario_id") || containsJSONField(res.Body.String(), "usuario")) {
 			t.Fatalf("target=%s expuso datos internos: %s", target, res.Body.String())
+		}
+		body := res.Body.String()
+		switch target {
+		case "/api/cliente/pedidos":
+			if !containsJSONField(body, "estado_actual") || !strings.Contains(body, `"nombre":"Recibido"`) {
+				t.Fatalf("listado sin estado oficial: %s", body)
+			}
+		case "/api/cliente/pedidos/7":
+			for _, field := range []string{"estado_actual", "flujo_operativo", "estados", "servicios"} {
+				if !containsJSONField(body, field) {
+					t.Fatalf("detalle sin %s: %s", field, body)
+				}
+			}
+		case "/api/cliente/pedidos/7/historial-estados":
+			if !containsJSONField(body, "fecha_cambio") {
+				t.Fatalf("historial sin fecha de cambio: %s", body)
+			}
+			if strings.Index(body, `"nombre":"Recibido"`) >= strings.Index(body, `"nombre":"En lavado"`) {
+				t.Fatalf("historial fuera de orden cronologico: %s", body)
+			}
 		}
 	}
 }
