@@ -6,7 +6,7 @@ info:
     clientes, usuarios). Este documento cubre los endpoints implementados
     autenticacion, clientes, catalogos, pedidos, servicios por prenda,
     detalle, estados, pagos, inventario, reportes, historial y cancelacion.
-  version: "1.13.0"
+  version: "1.14.0"
 
 servers:
   - url: http://localhost:8080
@@ -22,6 +22,8 @@ tags:
     description: Verificacion de disponibilidad del servicio
   - name: Autenticacion
     description: Login y emision de tokens JWT
+  - name: Usuarios
+    description: Gestion administrativa de cuentas unificadas y roles
   - name: Clientes
     description: Gestion de clientes de la lavanderia
   - name: Servicios
@@ -199,10 +201,10 @@ paths:
   /api/auth/login:
     post:
       tags: [Autenticacion]
-      summary: Inicia sesion y devuelve un token JWT
+      summary: Login unico para Administrador, Recepcionista, Operario y Cliente
       description: >
-        Devuelve un token JWT que debe enviarse como Bearer token para
-        consumir los endpoints protegidos del API.
+        Valida una cuenta activa almacenada en usuarios y devuelve token, rol,
+        identidad minima y destino de frontend. El JWT vence en ocho horas.
       security: []
       requestBody:
         required: true
@@ -231,6 +233,105 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           $ref: "#/components/responses/ErrorInterno"
+
+  /api/auth/password/forgot:
+    post:
+      tags: [Autenticacion]
+      summary: Solicita recuperacion sin revelar si el correo existe
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordForgotRequest" }
+      responses:
+        "202": { description: Solicitud aceptada }
+        "400": { description: JSON invalido }
+
+  /api/auth/password/reset/validate:
+    get:
+      tags: [Autenticacion]
+      summary: Comprueba que el token no este vencido ni utilizado
+      security: []
+      parameters:
+        - { name: token, in: query, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Token valido }
+        "400": { description: Token invalido, vencido o utilizado }
+
+  /api/auth/password/reset:
+    post:
+      tags: [Autenticacion]
+      summary: Cambia la contrasena y consume el token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordResetRequest" }
+      responses:
+        "200": { description: Contrasena actualizada }
+        "400": { description: Token invalido, vencido o utilizado }
+        "422": { $ref: "#/components/responses/ErrorValidacion" }
+
+  /api/usuarios/:
+    get:
+      tags: [Usuarios]
+      summary: Lista cuentas, rol y estado (solo Administrador)
+      responses:
+        "200":
+          description: Cuentas sin hashes ni tokens
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/UsuarioCuenta" } }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/NoAutorizado" }
+    post:
+      tags: [Usuarios]
+      summary: Crea Administrador, Recepcionista o Cliente (solo Administrador)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UsuarioCreateRequest" }
+      responses:
+        "201": { description: Cuenta creada }
+        "409": { description: Correo duplicado globalmente }
+        "422": { $ref: "#/components/responses/ErrorValidacion" }
+
+  /api/usuarios/{usuarioID}:
+    parameters:
+      - { name: usuarioID, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    put:
+      tags: [Usuarios]
+      summary: Edita informacion autorizada (solo Administrador)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UsuarioUpdateRequest" }
+      responses:
+        "200": { description: Cuenta actualizada }
+        "404": { description: Cuenta inexistente }
+        "409": { description: Correo duplicado }
+        "422": { $ref: "#/components/responses/ErrorValidacion" }
+
+  /api/usuarios/{usuarioID}/estado:
+    parameters:
+      - { name: usuarioID, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    patch:
+      tags: [Usuarios]
+      summary: Activa o desactiva una cuenta (solo Administrador)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [activo]
+              properties: { activo: { type: boolean } }
+      responses:
+        "200": { description: Estado actualizado }
 
   /api/auth/clientes/registro:
     post:
@@ -272,7 +373,8 @@ paths:
     post:
       tags: [Autenticacion]
       summary: Inicia sesion en el portal de clientes
-      description: Emite un JWT con actor cliente y el claim cliente_id.
+      description: Endpoint de compatibilidad. Las aplicaciones nuevas deben usar /api/auth/login.
+      deprecated: true
       security: []
       requestBody:
         required: true
@@ -286,7 +388,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LoginResponse"
+                $ref: "#/components/schemas/LegacyLoginResponse"
         "400":
           description: Cuerpo de la peticion invalido
           content:
@@ -1706,6 +1808,27 @@ paths:
           $ref: "#/components/responses/NoAutorizado"
         "404":
           $ref: "#/components/responses/TipoPrendaNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/pedidos/catalogos/metodos-pago:
+    get:
+      tags: [Pedidos]
+      summary: Lista metodos de pago activos para el cobro operativo
+      description: Disponible para Administrador y Recepcionista; no concede acceso al CRUD del catalogo.
+      responses:
+        "200":
+          description: Opciones disponibles para registrar un pago
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MetodoPago"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/NoAutorizado"
         "500":
           $ref: "#/components/responses/ErrorInterno"
 
@@ -3422,13 +3545,76 @@ components:
           format: password
           example: contrasenaSegura123
 
+    LegacyLoginResponse:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: Token JWT del cliente
+
     LoginResponse:
       type: object
+      required: [token, usuario, destino]
       properties:
         token:
           type: string
           description: Token JWT firmado, valido por 8 horas
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        usuario:
+          $ref: "#/components/schemas/UsuarioCuenta"
+        destino:
+          type: string
+          enum: [admin, cliente]
+
+    UsuarioCuenta:
+      type: object
+      required: [id, rol_id, rol, nombre, apellido, email, telefono, activo]
+      properties:
+        id: { type: integer }
+        rol_id: { type: integer, enum: [1, 2, 3, 4] }
+        rol: { type: string, enum: [Administrador, Recepcionista, Operario, Cliente] }
+        cliente_id: { type: integer, nullable: true }
+        nombre: { type: string }
+        apellido: { type: string }
+        email: { type: string, format: email }
+        telefono: { type: string }
+        activo: { type: boolean }
+
+    UsuarioCreateRequest:
+      type: object
+      required: [rol_id, email, password]
+      properties:
+        rol_id: { type: integer, enum: [1, 2, 4] }
+        nombre: { type: string, maxLength: 100 }
+        apellido: { type: string, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 150 }
+        telefono: { type: string, maxLength: 20 }
+        direccion: { type: string, maxLength: 255 }
+        password: { type: string, format: password, minLength: 8, maxLength: 72, writeOnly: true }
+
+    UsuarioUpdateRequest:
+      type: object
+      properties:
+        nombre: { type: string, maxLength: 100 }
+        apellido: { type: string, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 150 }
+        telefono: { type: string, maxLength: 20 }
+        direccion: { type: string, maxLength: 255 }
+        activo: { type: boolean }
+
+    PasswordForgotRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+
+    PasswordResetRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string, writeOnly: true }
+        password: { type: string, format: password, minLength: 8, maxLength: 72, writeOnly: true }
 
     ErrorResponse:
       type: object

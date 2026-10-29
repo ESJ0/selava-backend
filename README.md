@@ -2,7 +2,7 @@
 
 ## Desarrollo local
 
-Requiere Go 1.25 y Docker. Copia `.env.example` a `.env` y configura la base de datos, `JWT_SECRET`, `SEED_ADMIN_EMAIL` y `SEED_ADMIN_PASSWORD` con valores exclusivamente locales. Docker publica PostgreSQL en `localhost:5433` para no interferir con una instalación local en el puerto estándar.
+Requiere Go 1.25 y Docker. Copia `.env.example` a `.env` y configura la base de datos y `JWT_SECRET`. Docker publica PostgreSQL en `localhost:5433` para no interferir con una instalación local en el puerto estándar.
 
 ```powershell
 docker compose up -d postgres
@@ -11,7 +11,16 @@ go run .\cmd\seed
 go run .\cmd\api
 ```
 
-La API queda en `http://localhost:8080` y el health check en `http://localhost:8080/health`. El seed es idempotente y actualiza la contraseña del administrador local desde las variables configuradas. Para detener PostgreSQL sin borrar datos: `docker compose down`.
+La API queda en `http://localhost:8080` y el health check en `http://localhost:8080/health`. El seed local es idempotente y prepara `admin@selava.local` / `Admin123!`; esta credencial es exclusivamente de desarrollo. Para detener PostgreSQL sin borrar datos: `docker compose down`.
+
+## Autenticación unificada (SEL-204)
+
+La migración 028 centraliza las credenciales de Administrador, Recepcionista,
+Operario y Cliente en `usuarios`, preservando cuentas de cliente existentes.
+`POST /api/auth/login` devuelve JWT, rol y destino. Administrador gestiona
+`/api/usuarios`; la recuperación usa tokens de un solo uso con 30 minutos de
+vigencia y SMTP configurable. La matriz completa se documenta en
+[`documentos/sel-204-autenticacion-unificada.md`](documentos/sel-204-autenticacion-unificada.md).
 
 ## Listado de pedidos
 
@@ -44,16 +53,10 @@ Para desarrollar ambos frontends, configura en el `.env` local del backend:
 `ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174`. El portal cliente
 utiliza el puerto 5174; CORS mantiene una lista explicita de origenes permitidos.
 
-El modelo de identidad para el portal cliente y su relacion opcional 1:1 con
-`clientes` se documenta en `documentos/modelo-cuenta-cliente.md`. La migracion
-022 crea la tabla `cuentas_cliente`.
-
-El portal dispone de `POST /api/auth/clientes/registro` y
-`POST /api/auth/clientes/login`. El registro crea perfil y cuenta en una sola
-transaccion; el login devuelve un JWT con `actor=cliente` y `cliente_id`. Estos
-tokens no son aceptados por las rutas del panel interno. `GET /api/cliente/me`
-es una ruta privada minima para validar la sesion del cliente. El contrato
-completo se encuentra en `documentos/openapi.yaml`.
+El portal conserva `POST /api/auth/clientes/registro`, pero las credenciales se
+guardan en `usuarios` relacionadas 1:1 con `clientes`. El login visible utiliza
+el endpoint unificado. `POST /api/auth/clientes/login` permanece temporalmente
+por compatibilidad. `GET /api/cliente/me` valida la sesión privada del cliente.
 
 Las garantias y pruebas de aislamiento entre sesiones de clientes se documentan
 en `documentos/pruebas-seguridad-clientes.md`. Los tokens del portal no pueden

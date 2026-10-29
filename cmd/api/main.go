@@ -60,6 +60,17 @@ func main() {
 	usuarioRepo := repository.NewUsuarioRepository(db)
 	authService := service.NewAuthService(usuarioRepo, cfg.JWTSecret)
 	authController := controller.NewAuthController(authService)
+	usuarioController := controller.NewUsuarioController(service.NewUsuarioService(usuarioRepo))
+	passwordMailer := service.PasswordMailer(service.DevelopmentMailer{})
+	if cfg.SMTPHost != "" {
+		passwordMailer = &service.SMTPMailer{Host: cfg.SMTPHost, Port: cfg.SMTPPort, User: cfg.SMTPUser, Password: cfg.SMTPPassword, From: cfg.SMTPFrom}
+	}
+	passwordResetController := controller.NewPasswordResetController(service.NewPasswordResetService(
+		usuarioRepo,
+		repository.NewPasswordResetRepository(db),
+		passwordMailer,
+		cfg.PasswordResetURL,
+	))
 	cuentaClienteRepo := repository.NewCuentaClienteRepository(db)
 	clienteAuthService := service.NewClienteAuthService(cuentaClienteRepo, cfg.JWTSecret)
 	clienteAuthController := controller.NewClienteAuthController(clienteAuthService)
@@ -80,6 +91,8 @@ func main() {
 	router := routes.NewRouterWithClienteAuth(clienteController, servicioController, insumoController, movimientoInventarioController, tipoPrendaController, metodoPagoController, pedidoController, pagoController, prendaController, estadoPedidoController, authController, clienteAuthController, cfg.JWTSecret, cfg.AllowedOrigins, reporteController)
 	routes.RegisterPromociones(router, controller.NewPromocionController(service.NewPromocionService(repository.NewPromocionRepository(db))), cfg.JWTSecret)
 	routes.RegisterNotificacionesCliente(router, notificacionController, cfg.JWTSecret)
+	routes.RegisterUsuarios(router, usuarioController, cfg.JWTSecret)
+	routes.RegisterPasswordReset(router, passwordResetController)
 
 	port := cfg.Port
 	if port == "" {

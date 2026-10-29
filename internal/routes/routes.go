@@ -63,13 +63,12 @@ func newRouter(clienteController *controller.ClienteController, servicioControll
 
 	r.Route("/api/servicios", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
-		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista))
 
-		r.Post("/", servicioController.Crear)
-		r.Get("/", servicioController.Listar)
-		r.Get("/{id}", servicioController.Obtener)
-		r.Put("/{id}", servicioController.Actualizar)
-		r.Delete("/{id}", servicioController.Eliminar)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador)).Post("/", servicioController.Crear)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Get("/", servicioController.Listar)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Get("/{id}", servicioController.Obtener)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador)).Put("/{id}", servicioController.Actualizar)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador)).Delete("/{id}", servicioController.Eliminar)
 	})
 
 	r.Route("/api/insumos", func(r chi.Router) {
@@ -92,18 +91,17 @@ func newRouter(clienteController *controller.ClienteController, servicioControll
 
 	r.Route("/api/tipos-prenda", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
-		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista))
 
-		r.Post("/", tipoPrendaController.Crear)
-		r.Get("/", tipoPrendaController.Listar)
-		r.Get("/{id}", tipoPrendaController.Obtener)
-		r.Put("/{id}", tipoPrendaController.Actualizar)
-		r.Delete("/{id}", tipoPrendaController.Eliminar)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador)).Post("/", tipoPrendaController.Crear)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Get("/", tipoPrendaController.Listar)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Get("/{id}", tipoPrendaController.Obtener)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador)).Put("/{id}", tipoPrendaController.Actualizar)
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador)).Delete("/{id}", tipoPrendaController.Eliminar)
 	})
 
 	r.Route("/api/metodos-pago", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
-		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista))
+		r.Use(authMW.RequireRoles(authmiddleware.RolAdministrador))
 		r.Post("/", metodoPagoController.Crear)
 		r.Get("/", metodoPagoController.Listar)
 		r.Get("/{id}", metodoPagoController.Obtener)
@@ -114,6 +112,9 @@ func newRouter(clienteController *controller.ClienteController, servicioControll
 	r.Route("/api/pedidos", func(r chi.Router) {
 		r.Use(authMW.Authenticate)
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista, authmiddleware.RolOperario)).Get("/", pedidoController.Listar)
+		// Catalogo operativo para registrar cobros. No expone el CRUD del
+		// modulo administrativo de metodos de pago al Recepcionista.
+		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Get("/catalogos/metodos-pago", metodoPagoController.Listar)
 
 		r.With(authMW.RequireRoles(authmiddleware.RolAdministrador, authmiddleware.RolRecepcionista)).Post("/", pedidoController.Crear)
 		r.Get("/{pedidoID}", pedidoController.ObtenerDetalle)

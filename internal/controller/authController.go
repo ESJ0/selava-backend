@@ -42,7 +42,7 @@ func (ac *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := ac.authService.Login(ctx, req.Email, req.Password)
+	resultado, err := ac.authService.LoginUnificado(ctx, req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, service.ErrCredencialesInvalidas) {
 			respondError(w, http.StatusUnauthorized, err.Error())
@@ -52,5 +52,5 @@ func (ac *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, loginResponse{Token: token})
+	respondJSON(w, http.StatusOK, resultado)
 }

@@ -56,3 +56,5 @@ func validatePassword(password string) ValidationErrors {
 	}
 	return errs
 }
+
+func ValidatePassword(password string) ValidationErrors { return validatePassword(password) }

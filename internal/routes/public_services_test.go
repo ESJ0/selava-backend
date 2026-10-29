@@ -22,6 +22,12 @@ type publicServicesRepo struct {
 	err     error
 }
 
+type operationalPaymentRepo struct{ service.MetodoPagoRepository }
+
+func (operationalPaymentRepo) List(context.Context) ([]models.MetodoPago, error) {
+	return []models.MetodoPago{{ID: 1, Nombre: "Efectivo", Activo: true}}, nil
+}
+
 func (r publicServicesRepo) ListActive(context.Context) ([]models.ServicioPublico, error) {
 	return r.catalog, r.err
 }
@@ -33,6 +39,12 @@ func (r publicServicesRepo) List(context.Context) ([]models.Servicio, error) {
 func publicServicesRouter(repo publicServicesRepo) http.Handler {
 	sc := controller.NewServicioController(service.NewServicioService(repo))
 	return NewRouter(nil, sc, nil, nil, nil, nil, nil, nil, nil, nil, nil, "catalog-test-secret", "http://localhost:5174")
+}
+
+func operationalPaymentRouter() http.Handler {
+	sc := controller.NewServicioController(service.NewServicioService(publicServicesRepo{}))
+	pc := controller.NewMetodoPagoController(service.NewMetodoPagoService(operationalPaymentRepo{}))
+	return NewRouter(nil, sc, nil, nil, nil, pc, nil, nil, nil, nil, nil, "catalog-test-secret", "http://localhost:5173")
 }
 
 func TestPublicServicesWithoutJWT(t *testing.T) {
@@ -113,6 +125,54 @@ func TestPublicServicesReadOnlyAndAdminStillProtected(t *testing.T) {
 		router.ServeHTTP(res, req)
 		if res.Code != tc.want {
 			t.Fatalf("rol=%d status=%d esperado=%d", tc.role, res.Code, tc.want)
+		}
+	}
+}
+
+func TestRecepcionistaSoloLeeCatalogosYNoAccedeMetodosPago(t *testing.T) {
+	router := publicServicesRouter(publicServicesRepo{})
+	token, err := auth.GenerateToken("catalog-test-secret", 8, middleware.RolRecepcionista)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		method, path string
+		want         int
+	}{
+		{http.MethodGet, "/api/servicios/", http.StatusOK},
+		{http.MethodPost, "/api/servicios/", http.StatusForbidden},
+		{http.MethodPost, "/api/tipos-prenda/", http.StatusForbidden},
+		{http.MethodGet, "/api/metodos-pago/", http.StatusForbidden},
+	} {
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		res := httptest.NewRecorder()
+		router.ServeHTTP(res, req)
+		if res.Code != tc.want {
+			t.Fatalf("%s %s status=%d esperado=%d body=%s", tc.method, tc.path, res.Code, tc.want, res.Body.String())
+		}
+	}
+}
+
+func TestCatalogoOperativoDePagoDisponibleSinAbrirElCRUD(t *testing.T) {
+	router := operationalPaymentRouter()
+	for _, tc := range []struct {
+		role, want int
+	}{
+		{middleware.RolAdministrador, http.StatusOK},
+		{middleware.RolRecepcionista, http.StatusOK},
+		{middleware.RolOperario, http.StatusForbidden},
+	} {
+		token, err := auth.GenerateToken("catalog-test-secret", 8, tc.role)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest(http.MethodGet, "/api/pedidos/catalogos/metodos-pago", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		res := httptest.NewRecorder()
+		router.ServeHTTP(res, req)
+		if res.Code != tc.want {
+			t.Fatalf("rol=%d status=%d esperado=%d body=%s", tc.role, res.Code, tc.want, res.Body.String())
 		}
 	}
 }

@@ -35,7 +35,7 @@ func TestCuentaClienteRepositoryRegistraPerfilYCuentaAtomicamente(t *testing.T) 
 	mustSprint3(t, repo.MarcarUltimoAcceso(f.ctx, obtenido.Cuenta.ID))
 	var actualizado bool
 	mustSprint3(t, f.db.QueryRow(f.ctx, `
-		SELECT ultimo_acceso_at IS NOT NULL FROM cuentas_cliente WHERE id=$1
+		SELECT ultimo_acceso_at IS NOT NULL FROM usuarios WHERE id=$1
 	`, obtenido.Cuenta.ID).Scan(&actualizado))
 	if !actualizado {
 		t.Fatal("ultimo_acceso_at no fue actualizado")
@@ -59,7 +59,7 @@ func TestCuentaClienteRepositoryRechazaEmailDuplicado(t *testing.T) {
 
 	var perfiles, cuentas int
 	mustSprint3(t, f.db.QueryRow(f.ctx, `SELECT COUNT(*) FROM clientes WHERE email=$1`, req.Email).Scan(&perfiles))
-	mustSprint3(t, f.db.QueryRow(f.ctx, `SELECT COUNT(*) FROM cuentas_cliente WHERE email=$1`, req.Email).Scan(&cuentas))
+	mustSprint3(t, f.db.QueryRow(f.ctx, `SELECT COUNT(*) FROM usuarios WHERE email=$1 AND rol_id=4`, req.Email).Scan(&cuentas))
 	if perfiles != 1 || cuentas != 1 {
 		t.Fatalf("el registro duplicado dejo datos parciales: perfiles=%d cuentas=%d", perfiles, cuentas)
 	}

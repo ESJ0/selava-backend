@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 
 	"github.com/ESJ0/selava-backend/internal/auth"
 	"github.com/ESJ0/selava-backend/internal/config"
@@ -15,10 +14,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	email, password := os.Getenv("SEED_ADMIN_EMAIL"), os.Getenv("SEED_ADMIN_PASSWORD")
-	if email == "" || password == "" {
-		log.Fatal("SEED_ADMIN_EMAIL y SEED_ADMIN_PASSWORD son requeridos")
-	}
+	const email = "admin@selava.local"
+	const password = "Admin123!"
 	hash, err := auth.HashPassword(password)
 	if err != nil {
 		log.Fatal(err)
@@ -34,11 +31,11 @@ func main() {
 		log.Fatal(err)
 	}
 	defer tx.Rollback(ctx)
-	// Los roles (Administrador, Recepcionista, Operario) ya existen para
+	// Los roles ya existen para
 	// este punto: los crea la migracion 016, igual que estados_pedido se
 	// siembra por migracion en vez de por este script. Aqui solo se usa
 	// el rol Administrador, que ya deberia estar en la base de datos.
-	if _, err = tx.Exec(ctx, `INSERT INTO usuarios(rol_id,nombre,apellido,email,password_hash,telefono) SELECT id,'Admin','SeLava',$1,$2,'00000000' FROM roles WHERE nombre='Administrador' ON CONFLICT(email) DO UPDATE SET password_hash=EXCLUDED.password_hash,activo=TRUE`, email, hash); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO usuarios(rol_id,nombre,apellido,email,password_hash,telefono) SELECT id,'Admin','SeLava',$1,$2,'00000000' FROM roles WHERE nombre='Administrador' ON CONFLICT(email) DO UPDATE SET password_hash=EXCLUDED.password_hash,activo=TRUE,updated_at=NOW()`, email, hash); err != nil {
 		log.Fatal(err)
 	}
 	for _, row := range [][2]string{{"Lavado", "Lavado general"}, {"Planchado", "Planchado de prendas"}, {"Lavado en seco", "Limpieza en seco"}} {
@@ -66,5 +63,5 @@ func main() {
 	if err = tx.Commit(ctx); err != nil {
 		log.Fatal(err)
 	}
-	log.Println("seed de desarrollo aplicado")
+	log.Printf("seed de desarrollo aplicado; administrador local: %s", email)
 }
