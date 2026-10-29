@@ -54,11 +54,11 @@ func (r *CuentaClienteRepository) Registrar(ctx context.Context, req *models.Cli
 	}
 
 	err = tx.QueryRow(ctx, `
-		INSERT INTO cuentas_cliente(cliente_id, email, password_hash)
-		VALUES($1, $2, $3)
+		INSERT INTO usuarios(rol_id, cliente_id, nombre, apellido, email, password_hash, telefono)
+		VALUES(4, $1, $2, $3, $4, $5, $6)
 		RETURNING id, cliente_id, email, password_hash, activo,
 		          email_verificado_at, ultimo_acceso_at, created_at, updated_at
-	`, resultado.Cliente.ID, req.Email, passwordHash).Scan(
+	`, resultado.Cliente.ID, req.Nombre, req.Apellido, req.Email, passwordHash, req.Telefono).Scan(
 		&resultado.Cuenta.ID,
 		&resultado.Cuenta.ClienteID,
 		&resultado.Cuenta.Email,
@@ -89,9 +89,9 @@ func (r *CuentaClienteRepository) GetByEmail(ctx context.Context, email string) 
 		       c.activo, c.created_at, c.updated_at,
 		       cc.id, cc.cliente_id, cc.email, cc.password_hash, cc.activo,
 		       cc.email_verificado_at, cc.ultimo_acceso_at, cc.created_at, cc.updated_at
-		FROM cuentas_cliente cc
+		FROM usuarios cc
 		JOIN clientes c ON c.id = cc.cliente_id
-		WHERE cc.email = $1
+		WHERE cc.email = $1 AND cc.rol_id = 4
 	`, email).Scan(
 		&resultado.Cliente.ID,
 		&resultado.Cliente.Nombre,
@@ -130,9 +130,9 @@ func (r *CuentaClienteRepository) GetClienteActivoByID(ctx context.Context, clie
 		SELECT c.id, c.nombre, c.apellido, c.telefono,
 		       COALESCE(c.email, ''), COALESCE(c.direccion, ''),
 		       c.activo, c.created_at, c.updated_at
-		FROM cuentas_cliente cc
+		FROM usuarios cc
 		JOIN clientes c ON c.id = cc.cliente_id
-		WHERE cc.cliente_id = $1 AND cc.activo = TRUE AND c.activo = TRUE
+		WHERE cc.cliente_id = $1 AND cc.rol_id = 4 AND cc.activo = TRUE AND c.activo = TRUE
 	`, clienteID).Scan(
 		&cliente.ID, &cliente.Nombre, &cliente.Apellido, &cliente.Telefono,
 		&cliente.Email, &cliente.Direccion, &cliente.Activo,
@@ -149,7 +149,7 @@ func (r *CuentaClienteRepository) GetClienteActivoByID(ctx context.Context, clie
 
 func (r *CuentaClienteRepository) MarcarUltimoAcceso(ctx context.Context, cuentaID int) error {
 	tag, err := r.db.Exec(ctx, `
-		UPDATE cuentas_cliente
+		UPDATE usuarios
 		SET ultimo_acceso_at = NOW(), updated_at = NOW()
 		WHERE id = $1
 	`, cuentaID)
