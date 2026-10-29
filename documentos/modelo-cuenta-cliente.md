@@ -1,5 +1,11 @@
 # Modelo de cuenta de cliente
 
+> Documento historico previo a SEL-204. Desde la migracion 028, las
+> credenciales de clientes e internos se centralizan en `usuarios`; consulta
+> `sel-204-autenticacion-unificada.md` para el modelo vigente. La tabla
+> `cuentas_cliente` se conserva temporalmente solo como compatibilidad y
+> respaldo de reversa.
+
 ## Decisión
 
 La identidad de negocio (`clientes`) y las credenciales del portal
