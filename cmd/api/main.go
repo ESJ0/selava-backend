@@ -73,9 +73,13 @@ func main() {
 	reporteConsumoInsumosRepo := repository.NewReporteConsumoInsumosRepository(db)
 	reporteConsumoInsumosService := service.NewReporteConsumoInsumosService(reporteConsumoInsumosRepo)
 	reporteController := controller.NewReporteController(reporteVentasService, reportePedidosEstadoService, reporteConsumoInsumosService)
+	notificacionRepo := repository.NewNotificacionRepository(db)
+	notificacionService := service.NewNotificacionService(notificacionRepo)
+	notificacionController := controller.NewNotificacionController(notificacionService)
 
 	router := routes.NewRouterWithClienteAuth(clienteController, servicioController, insumoController, movimientoInventarioController, tipoPrendaController, metodoPagoController, pedidoController, pagoController, prendaController, estadoPedidoController, authController, clienteAuthController, cfg.JWTSecret, cfg.AllowedOrigins, reporteController)
 	routes.RegisterPromociones(router, controller.NewPromocionController(service.NewPromocionService(repository.NewPromocionRepository(db))), cfg.JWTSecret)
+	routes.RegisterNotificacionesCliente(router, notificacionController, cfg.JWTSecret)
 
 	port := cfg.Port
 	if port == "" {

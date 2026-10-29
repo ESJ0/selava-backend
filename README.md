@@ -22,6 +22,14 @@ Admite `q` (número, nombre o teléfono), `estado_id`, `fecha_desde`, `fecha_has
 de recepción incluyen ambos días en horario de Guatemala; pueden usarse por separado.
 La migración 021 añade los índices del listado.
 
+## Notificaciones del portal cliente (SEL-203)
+
+La migración `027_create_notificaciones` agrega avisos privados asociados al
+cliente y opcionalmente al pedido. Los cambios de estado, incluido `Finalizado`
+y la cancelación, crean el aviso en la misma transacción. El contrato de API,
+las garantías de aislamiento y las rutas del portal se describen en
+[`documentos/sel-203-notificaciones.md`](documentos/sel-203-notificaciones.md).
+
 ## Catalogo publico (SEL-93)
 
 `GET /api/public/servicios` no requiere JWT ni cabecera `Authorization`. Devuelve
