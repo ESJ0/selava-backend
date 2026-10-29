@@ -89,8 +89,9 @@ func (r *PedidoRepository) UpdateEstado(ctx context.Context, pedidoID int, req *
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	var estadoActual models.EstadoPedido
+	var clienteID int
 	if err := tx.QueryRow(ctx,
-		`SELECT e.id, e.nombre, e.codigo, e.orden,
+		`SELECT p.cliente_id, e.id, e.nombre, e.codigo, e.orden,
 		        e.es_obligatorio, e.es_terminal, e.es_cancelacion,
 		        e.created_at, e.updated_at
 		 FROM pedidos p
@@ -99,7 +100,7 @@ func (r *PedidoRepository) UpdateEstado(ctx context.Context, pedidoID int, req *
 		 FOR UPDATE OF p`,
 		pedidoID,
 	).Scan(
-		&estadoActual.ID, &estadoActual.Nombre, &estadoActual.Codigo, &estadoActual.Orden,
+		&clienteID, &estadoActual.ID, &estadoActual.Nombre, &estadoActual.Codigo, &estadoActual.Orden,
 		&estadoActual.EsObligatorio, &estadoActual.EsTerminal, &estadoActual.EsCancelacion,
 		&estadoActual.CreatedAt, &estadoActual.UpdatedAt,
 	); err != nil {
@@ -150,6 +151,9 @@ func (r *PedidoRepository) UpdateEstado(ctx context.Context, pedidoID int, req *
 
 	historial, err := registrarCambioEstado(ctx, tx, pedidoID, req.EstadoID, usuarioID, req.Observaciones)
 	if err != nil {
+		return nil, err
+	}
+	if err := insertarNotificacionCambioEstado(ctx, tx, pedidoID, clienteID, estadoDestino); err != nil {
 		return nil, err
 	}
 
@@ -441,6 +445,11 @@ func (r *PedidoRepository) Cancelar(ctx context.Context, pedidoID, usuarioID int
 
 	observacionCancelacion := "Pedido cancelado"
 	if _, err := registrarCambioEstado(ctx, tx, pedidoID, estadoCanceladoID, usuarioID, &observacionCancelacion); err != nil {
+		return nil, err
+	}
+	if err := insertarNotificacionCambioEstado(ctx, tx, pedidoID, pedido.ClienteID, models.EstadoPedido{
+		ID: estadoCanceladoID, Nombre: "Cancelado", Codigo: "CANCELADO", EsTerminal: true, EsCancelacion: true,
+	}); err != nil {
 		return nil, err
 	}
 
