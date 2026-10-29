@@ -6,7 +6,7 @@ info:
     clientes, usuarios). Este documento cubre los endpoints implementados
     autenticacion, clientes, catalogos, pedidos, servicios por prenda,
     detalle, estados, pagos, inventario, reportes, historial y cancelacion.
-  version: "1.12.0"
+  version: "1.13.0"
 
 servers:
   - url: http://localhost:8080
@@ -42,6 +42,8 @@ tags:
     description: Gestion de los servicios asociados a las prendas
   - name: Estados de Pedido
     description: Catalogo y flujo de estados de los pedidos
+  - name: Notificaciones
+    description: Avisos privados generados por cambios de estado de pedidos
   - name: Reportes
     description: Indicadores financieros agregados para administracion
 
@@ -468,6 +470,85 @@ paths:
           description: El pedido no existe, esta inactivo o pertenece a otro cliente
         "500":
           $ref: "#/components/responses/ErrorInterno"
+
+  /api/cliente/notificaciones/:
+    get:
+      tags: [Notificaciones]
+      summary: Lista las notificaciones del cliente autenticado
+      description: La identidad se obtiene exclusivamente del JWT de cliente. El listado se ordena de la mas reciente a la mas antigua e incluye el total no leido.
+      x-token-actor: cliente
+      responses:
+        "200":
+          description: Historial de notificaciones propias
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificacionesResponse"
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/cliente/notificaciones/leidas:
+    patch:
+      tags: [Notificaciones]
+      summary: Marca todas las notificaciones propias como leidas
+      x-token-actor: cliente
+      responses:
+        "200":
+          description: Cantidad de filas actualizadas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [actualizadas]
+                properties:
+                  actualizadas: { type: integer, format: int64, minimum: 0 }
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "500":
+          $ref: "#/components/responses/ErrorInterno"
+
+  /api/cliente/notificaciones/{notificacionID}/leida:
+    patch:
+      tags: [Notificaciones]
+      summary: Marca una notificacion propia como leida
+      description: Una notificacion ajena se responde como no encontrada.
+      x-token-actor: cliente
+      parameters:
+        - name: notificacionID
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Notificacion actualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notificacion"
+        "400": { description: ID de notificacion invalido }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "404": { description: La notificacion no existe o pertenece a otro cliente }
+        "500": { $ref: "#/components/responses/ErrorInterno" }
+
+  /api/cliente/notificaciones/{notificacionID}:
+    delete:
+      tags: [Notificaciones]
+      summary: Elimina una notificacion propia
+      description: Una notificacion ajena se responde como no encontrada.
+      x-token-actor: cliente
+      parameters:
+        - name: notificacionID
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "204": { description: Notificacion eliminada }
+        "400": { description: ID de notificacion invalido }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "404": { description: La notificacion no existe o pertenece a otro cliente }
+        "500": { $ref: "#/components/responses/ErrorInterno" }
 
   /api/insumos/:
     get:
@@ -3303,6 +3384,30 @@ components:
           $ref: "#/components/schemas/Cliente"
         cuenta:
           $ref: "#/components/schemas/CuentaCliente"
+
+    Notificacion:
+      type: object
+      required: [id, cliente_id, mensaje, leida, created_at]
+      properties:
+        id: { type: integer, minimum: 1 }
+        cliente_id: { type: integer, minimum: 1 }
+        pedido_id:
+          type: integer
+          minimum: 1
+          nullable: true
+        mensaje: { type: string, minLength: 1 }
+        leida: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    NotificacionesResponse:
+      type: object
+      required: [notificaciones, no_leidas]
+      properties:
+        notificaciones:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notificacion"
+        no_leidas: { type: integer, minimum: 0 }
 
     LoginRequest:
       type: object
