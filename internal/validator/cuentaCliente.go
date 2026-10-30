@@ -58,3 +58,32 @@ func validatePassword(password string) ValidationErrors {
 }
 
 func ValidatePassword(password string) ValidationErrors { return validatePassword(password) }
+
+func ValidateClientePerfil(req *models.ClientePerfilUpdateRequest) ValidationErrors {
+	var errs ValidationErrors
+	errs = append(errs, validateNombre("nombre", req.Nombre)...)
+	errs = append(errs, validateNombre("apellido", req.Apellido)...)
+	errs = append(errs, validateTelefono(req.Telefono)...)
+	if strings.TrimSpace(req.Email) == "" {
+		errs = append(errs, FieldError{Field: "email", Message: "es requerido"})
+	} else {
+		errs = append(errs, validateEmail(req.Email)...)
+	}
+	errs = append(errs, validateDireccion(req.Direccion)...)
+	return errs
+}
+
+func ValidateClientePassword(req *models.ClientePasswordUpdateRequest) ValidationErrors {
+	var errs ValidationErrors
+	if req.PasswordActual == "" {
+		errs = append(errs, FieldError{Field: "password_actual", Message: "es requerida"})
+	}
+	for _, item := range validatePassword(req.PasswordNueva) {
+		item.Field = "password_nueva"
+		errs = append(errs, item)
+	}
+	if req.PasswordActual != "" && req.PasswordActual == req.PasswordNueva {
+		errs = append(errs, FieldError{Field: "password_nueva", Message: "debe ser diferente a la contraseña actual"})
+	}
+	return errs
+}

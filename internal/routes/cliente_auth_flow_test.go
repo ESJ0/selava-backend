@@ -75,6 +75,46 @@ func (r *memoriaCuentaClienteRepository) MarcarUltimoAcceso(_ context.Context, c
 	r.ultimoAcceso = cuentaID
 	return nil
 }
+func (r *memoriaCuentaClienteRepository) ActualizarPerfil(_ context.Context, clienteID int, req *models.ClientePerfilUpdateRequest) (*models.Cliente, error) {
+	for email, registro := range r.cuentas {
+		if registro.Cliente.ID == clienteID {
+			delete(r.cuentas, email)
+			registro.Cliente.Nombre = req.Nombre
+			registro.Cliente.Apellido = req.Apellido
+			registro.Cliente.Telefono = req.Telefono
+			registro.Cliente.Email = req.Email
+			registro.Cliente.Direccion = req.Direccion
+			registro.Cuenta.Email = req.Email
+			r.cuentas[req.Email] = registro
+			return &registro.Cliente, nil
+		}
+	}
+	return nil, repository.ErrCuentaClienteNoEncontrada
+}
+func (r *memoriaCuentaClienteRepository) GetPasswordHashByClienteID(_ context.Context, clienteID int) (string, error) {
+	for _, registro := range r.cuentas {
+		if registro.Cliente.ID == clienteID {
+			return registro.Cuenta.PasswordHash, nil
+		}
+	}
+	return "", repository.ErrCuentaClienteNoEncontrada
+}
+func (r *memoriaCuentaClienteRepository) ActualizarPassword(_ context.Context, clienteID int, hash string) error {
+	for _, registro := range r.cuentas {
+		if registro.Cliente.ID == clienteID {
+			registro.Cuenta.PasswordHash = hash
+			return nil
+		}
+	}
+	return repository.ErrCuentaClienteNoEncontrada
+}
+func (r *memoriaCuentaClienteRepository) GuardarFotoPerfil(context.Context, int, []byte, string) error {
+	return nil
+}
+func (r *memoriaCuentaClienteRepository) ObtenerFotoPerfil(context.Context, int) (*models.ClienteFotoPerfil, error) {
+	return nil, repository.ErrCuentaClienteNoEncontrada
+}
+func (r *memoriaCuentaClienteRepository) EliminarFotoPerfil(context.Context, int) error { return nil }
 
 func nuevoRouterClienteEnMemoria() (http.Handler, *memoriaCuentaClienteRepository) {
 	repo := nuevaMemoriaCuentaClienteRepository()

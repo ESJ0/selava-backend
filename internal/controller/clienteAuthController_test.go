@@ -35,6 +35,19 @@ func (f *fakeClienteAuthService) ObtenerPerfil(context.Context, int) (*models.Cl
 	}
 	return &models.ClienteResponse{ID: 42, Nombre: "Ana", Apellido: "Lopez", Email: "ana@example.com", Activo: true}, nil
 }
+func (f *fakeClienteAuthService) ActualizarPerfil(context.Context, int, *models.ClientePerfilUpdateRequest) (*models.ClienteResponse, error) {
+	return f.ObtenerPerfil(context.Background(), 0)
+}
+func (f *fakeClienteAuthService) CambiarPassword(context.Context, int, *models.ClientePasswordUpdateRequest) error {
+	return f.err
+}
+func (f *fakeClienteAuthService) GuardarFotoPerfil(context.Context, int, []byte, string) error {
+	return f.err
+}
+func (f *fakeClienteAuthService) ObtenerFotoPerfil(context.Context, int) (*models.ClienteFotoPerfil, error) {
+	return &models.ClienteFotoPerfil{Contenido: []byte("foto"), Tipo: "image/png"}, f.err
+}
+func (f *fakeClienteAuthService) EliminarFotoPerfil(context.Context, int) error { return f.err }
 
 func TestClienteAuthControllerRegistrar(t *testing.T) {
 	servicio := &fakeClienteAuthService{registrado: &models.ClienteRegistrado{

@@ -4,15 +4,16 @@ import "time"
 
 // Cliente representa un registro de la tabla clientes.
 type Cliente struct {
-	ID        int       `json:"id"`
-	Nombre    string    `json:"nombre"`
-	Apellido  string    `json:"apellido"`
-	Telefono  string    `json:"telefono"`
-	Email     string    `json:"email,omitempty"`
-	Direccion string    `json:"direccion,omitempty"`
-	Activo    bool      `json:"activo"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID              int       `json:"id"`
+	Nombre          string    `json:"nombre"`
+	Apellido        string    `json:"apellido"`
+	Telefono        string    `json:"telefono"`
+	Email           string    `json:"email,omitempty"`
+	Direccion       string    `json:"direccion,omitempty"`
+	Activo          bool      `json:"activo"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	TieneFotoPerfil bool      `json:"tiene_foto_perfil"`
 }
 
 // Payload que se recibe al crear un cliente
@@ -36,28 +37,48 @@ type ClienteUpdateRequest struct {
 
 // Es lo que se expone hacia afuera en la API
 type ClienteResponse struct {
-	ID        int       `json:"id"`
-	Nombre    string    `json:"nombre"`
-	Apellido  string    `json:"apellido"`
-	Telefono  string    `json:"telefono"`
-	Email     string    `json:"email,omitempty"`
-	Direccion string    `json:"direccion,omitempty"`
-	Activo    bool      `json:"activo"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID              int       `json:"id"`
+	Nombre          string    `json:"nombre"`
+	Apellido        string    `json:"apellido"`
+	Telefono        string    `json:"telefono"`
+	Email           string    `json:"email,omitempty"`
+	Direccion       string    `json:"direccion,omitempty"`
+	Activo          bool      `json:"activo"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	TieneFotoPerfil bool      `json:"tiene_foto_perfil"`
+}
+
+type ClientePerfilUpdateRequest struct {
+	Nombre    string `json:"nombre"`
+	Apellido  string `json:"apellido"`
+	Telefono  string `json:"telefono"`
+	Email     string `json:"email"`
+	Direccion string `json:"direccion"`
+}
+
+type ClientePasswordUpdateRequest struct {
+	PasswordActual string `json:"password_actual"`
+	PasswordNueva  string `json:"password_nueva"`
+}
+
+type ClienteFotoPerfil struct {
+	Contenido []byte
+	Tipo      string
 }
 
 // Convierte un Cliente en su versión de respuesta para la API
 func (c *Cliente) ToResponse() ClienteResponse {
 	return ClienteResponse{
-		ID:        c.ID,
-		Nombre:    c.Nombre,
-		Apellido:  c.Apellido,
-		Telefono:  c.Telefono,
-		Email:     c.Email,
-		Direccion: c.Direccion,
-		Activo:    c.Activo,
-		CreatedAt: c.CreatedAt,
-		UpdatedAt: c.UpdatedAt,
+		ID:              c.ID,
+		Nombre:          c.Nombre,
+		Apellido:        c.Apellido,
+		Telefono:        c.Telefono,
+		Email:           c.Email,
+		Direccion:       c.Direccion,
+		Activo:          c.Activo,
+		CreatedAt:       c.CreatedAt,
+		UpdatedAt:       c.UpdatedAt,
+		TieneFotoPerfil: c.TieneFotoPerfil,
 	}
 }
