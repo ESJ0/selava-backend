@@ -2,6 +2,8 @@ package models
 
 // ReportePedidosEstado resume los pedidos activos segun su estado actual.
 type ReportePedidosEstado struct {
+	FechaInicio      string                        `json:"fecha_inicio"`
+	FechaFin         string                        `json:"fecha_fin"`
 	TotalPedidos     int                           `json:"total_pedidos"`
 	PedidosPorEstado []ReportePedidosEstadoDetalle `json:"pedidos_por_estado"`
 }

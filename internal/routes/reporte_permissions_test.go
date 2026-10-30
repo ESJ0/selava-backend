@@ -31,8 +31,11 @@ func (reporteRouteRepository) GetByPeriodo(_ context.Context, inicio, fin time.T
 	}, nil
 }
 
-func (reportePedidosEstadoRouteRepository) Get(_ context.Context) (*models.ReportePedidosEstado, error) {
-	return &models.ReportePedidosEstado{PedidosPorEstado: []models.ReportePedidosEstadoDetalle{}}, nil
+func (reportePedidosEstadoRouteRepository) GetByPeriodo(_ context.Context, inicio, fin time.Time) (*models.ReportePedidosEstado, error) {
+	return &models.ReportePedidosEstado{
+		FechaInicio: inicio.Format(time.DateOnly), FechaFin: fin.AddDate(0, 0, -1).Format(time.DateOnly),
+		PedidosPorEstado: []models.ReportePedidosEstadoDetalle{},
+	}, nil
 }
 
 func (reporteConsumoInsumosRouteRepository) GetByPeriodo(_ context.Context, inicio, fin time.Time) (*models.ReporteConsumoInsumos, error) {
@@ -68,7 +71,7 @@ func reportePedidosEstadoRoleRequest(t *testing.T, role int) *http.Request {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := httptest.NewRequest(http.MethodGet, "/api/reportes/pedidos-por-estado", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/reportes/pedidos-por-estado?fecha_inicio=2026-09-01&fecha_fin=2026-09-30", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	return req
 }

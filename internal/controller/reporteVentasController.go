@@ -64,14 +64,30 @@ func (rc *ReporteController) Generar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (rc *ReporteController) PedidosPorEstado(w http.ResponseWriter, r *http.Request) {
+	fechaInicio, ok := fechaReporte(w, r, "fecha_inicio")
+	if !ok {
+		return
+	}
+	fechaFin, ok := fechaReporte(w, r, "fecha_fin")
+	if !ok {
+		return
+	}
+	if fechaInicio.After(fechaFin) {
+		respondError(w, http.StatusBadRequest, "fecha_inicio no puede ser posterior a fecha_fin")
+		return
+	}
 	if rc.pedidosEstadoService == nil {
 		respondError(w, http.StatusInternalServerError, "error interno del servidor")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
-	reporte, err := rc.pedidosEstadoService.Generar(ctx)
+	reporte, err := rc.pedidosEstadoService.Generar(ctx, fechaInicio, fechaFin)
 	if err != nil {
+		if errors.Is(err, service.ErrPeriodoReporteInvalido) {
+			respondError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		respondError(w, http.StatusInternalServerError, "error interno del servidor")
 		return
 	}

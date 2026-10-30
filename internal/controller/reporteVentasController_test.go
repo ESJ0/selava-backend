@@ -31,7 +31,7 @@ func (r *fakeReporteConsumoInsumosControllerRepository) GetByPeriodo(_ context.C
 	return r.reporte, r.err
 }
 
-func (r *fakeReportePedidosEstadoControllerRepository) Get(_ context.Context) (*models.ReportePedidosEstado, error) {
+func (r *fakeReportePedidosEstadoControllerRepository) GetByPeriodo(_ context.Context, _, _ time.Time) (*models.ReportePedidosEstado, error) {
 	return r.reporte, r.err
 }
 
@@ -113,7 +113,7 @@ func TestReporteControllerPedidosPorEstadoReturnsOK(t *testing.T) {
 		nil,
 		service.NewReportePedidosEstadoService(&fakeReportePedidosEstadoControllerRepository{reporte: esperado}),
 	)
-	req := httptest.NewRequest(http.MethodGet, "/api/reportes/pedidos-por-estado", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/reportes/pedidos-por-estado?fecha_inicio=2026-09-01&fecha_fin=2026-09-30", nil)
 	res := httptest.NewRecorder()
 
 	controller.PedidosPorEstado(res, req)
@@ -135,7 +135,7 @@ func TestReporteControllerPedidosPorEstadoPropagaErrorInterno(t *testing.T) {
 		nil,
 		service.NewReportePedidosEstadoService(&fakeReportePedidosEstadoControllerRepository{err: context.DeadlineExceeded}),
 	)
-	req := httptest.NewRequest(http.MethodGet, "/api/reportes/pedidos-por-estado", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/reportes/pedidos-por-estado?fecha_inicio=2026-09-01&fecha_fin=2026-09-30", nil)
 	res := httptest.NewRecorder()
 
 	controller.PedidosPorEstado(res, req)
