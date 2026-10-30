@@ -17,6 +17,9 @@ type fakeCuentaClienteRepository struct {
 	passwordHash string
 	ultimoAcceso int
 	ultimoAccErr error
+	cliente      *models.Cliente
+	hashActual   string
+	foto         *models.ClienteFotoPerfil
 }
 
 func (f *fakeCuentaClienteRepository) Registrar(_ context.Context, req *models.ClienteRegistroRequest, passwordHash string) (*models.ClienteRegistrado, error) {
@@ -41,6 +44,27 @@ func (f *fakeCuentaClienteRepository) GetClienteActivoByID(_ context.Context, _ 
 func (f *fakeCuentaClienteRepository) MarcarUltimoAcceso(_ context.Context, cuentaID int) error {
 	f.ultimoAcceso = cuentaID
 	return f.ultimoAccErr
+}
+func (f *fakeCuentaClienteRepository) ActualizarPerfil(_ context.Context, _ int, _ *models.ClientePerfilUpdateRequest) (*models.Cliente, error) {
+	return f.cliente, f.err
+}
+func (f *fakeCuentaClienteRepository) GetPasswordHashByClienteID(context.Context, int) (string, error) {
+	return f.hashActual, f.err
+}
+func (f *fakeCuentaClienteRepository) ActualizarPassword(_ context.Context, _ int, hash string) error {
+	f.passwordHash = hash
+	return f.err
+}
+func (f *fakeCuentaClienteRepository) GuardarFotoPerfil(_ context.Context, _ int, contenido []byte, tipo string) error {
+	f.foto = &models.ClienteFotoPerfil{Contenido: contenido, Tipo: tipo}
+	return f.err
+}
+func (f *fakeCuentaClienteRepository) ObtenerFotoPerfil(context.Context, int) (*models.ClienteFotoPerfil, error) {
+	return f.foto, f.err
+}
+func (f *fakeCuentaClienteRepository) EliminarFotoPerfil(context.Context, int) error {
+	f.foto = nil
+	return f.err
 }
 
 func TestClienteAuthServiceRegistrarNormalizaYHasheaPassword(t *testing.T) {
@@ -117,5 +141,32 @@ func TestClienteAuthServiceObtienePerfilParaRestaurarSesion(t *testing.T) {
 	perfil, err := NewClienteAuthService(repo, "secret").ObtenerPerfil(context.Background(), 42)
 	if err != nil || perfil.ID != 42 || perfil.Nombre != "Ana" {
 		t.Fatalf("perfil=%+v err=%v", perfil, err)
+	}
+}
+
+func TestClienteAuthServiceActualizaPerfilNormalizado(t *testing.T) {
+	repo := &fakeCuentaClienteRepository{cliente: &models.Cliente{ID: 42, Nombre: "Ana", Email: "ana@example.com"}}
+	request := &models.ClientePerfilUpdateRequest{Nombre: " Ana ", Apellido: " López ", Telefono: " 5555-1234 ", Email: " ANA@EXAMPLE.COM ", Direccion: " Zona 1 "}
+	perfil, err := NewClienteAuthService(repo, "secret").ActualizarPerfil(context.Background(), 42, request)
+	if err != nil || perfil.ID != 42 || request.Email != "ana@example.com" || request.Nombre != "Ana" {
+		t.Fatalf("perfil=%+v request=%+v err=%v", perfil, request, err)
+	}
+}
+
+func TestClienteAuthServiceCambiaPasswordVerificandoActual(t *testing.T) {
+	hash, err := auth.HashPassword("password-actual")
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := &fakeCuentaClienteRepository{hashActual: hash}
+	servicio := NewClienteAuthService(repo, "secret")
+	if err = servicio.CambiarPassword(context.Background(), 42, &models.ClientePasswordUpdateRequest{PasswordActual: "password-actual", PasswordNueva: "password-nueva"}); err != nil {
+		t.Fatalf("CambiarPassword() error=%v", err)
+	}
+	if !auth.CheckPassword(repo.passwordHash, "password-nueva") {
+		t.Fatal("la nueva contraseña no fue almacenada con hash")
+	}
+	if err = servicio.CambiarPassword(context.Background(), 42, &models.ClientePasswordUpdateRequest{PasswordActual: "incorrecta", PasswordNueva: "otra-password"}); !errors.Is(err, ErrPasswordActualIncorrecta) {
+		t.Fatalf("error=%v, esperado ErrPasswordActualIncorrecta", err)
 	}
 }

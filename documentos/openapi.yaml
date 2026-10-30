@@ -421,6 +421,85 @@ paths:
                 $ref: "#/components/schemas/Cliente"
         "401":
           $ref: "#/components/responses/NoAutenticado"
+    put:
+      tags: [Clientes]
+      summary: Actualiza el perfil del cliente autenticado
+      x-token-actor: cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientePerfilUpdateRequest"
+      responses:
+        "200":
+          description: Perfil actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cliente"
+        "409":
+          description: El correo ya pertenece a otra cuenta
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+
+  /api/cliente/me/password:
+    put:
+      tags: [Autenticacion]
+      summary: Cambia la contraseña del cliente autenticado
+      x-token-actor: cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientePasswordUpdateRequest"
+      responses:
+        "204":
+          description: Contraseña actualizada
+        "401":
+          description: Token inválido o contraseña actual incorrecta
+        "422":
+          $ref: "#/components/responses/ErrorValidacion"
+
+  /api/cliente/me/foto:
+    get:
+      tags: [Clientes]
+      summary: Obtiene la foto del cliente autenticado
+      x-token-actor: cliente
+      responses:
+        "200":
+          description: Imagen de perfil
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "404": { description: El cliente no tiene foto }
+    put:
+      tags: [Clientes]
+      summary: Crea o reemplaza la foto del cliente autenticado
+      x-token-actor: cliente
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [foto]
+              properties:
+                foto:
+                  type: string
+                  format: binary
+                  description: JPEG, PNG o WebP de hasta 2 MB
+      responses:
+        "204": { description: Foto actualizada }
+        "422": { description: Formato de imagen no permitido }
+    delete:
+      tags: [Clientes]
+      summary: Elimina la foto del cliente autenticado
+      x-token-actor: cliente
+      responses:
+        "204": { description: Foto eliminada }
 
   /api/cliente/pedidos:
     get:
@@ -2258,6 +2337,30 @@ components:
         updated_at:
           type: string
           format: date-time
+        tiene_foto_perfil:
+          type: boolean
+          example: false
+
+    ClientePerfilUpdateRequest:
+      type: object
+      required: [nombre, apellido, telefono, email, direccion]
+      properties:
+        nombre: { type: string, maxLength: 100 }
+        apellido: { type: string, maxLength: 100 }
+        telefono: { type: string, maxLength: 20 }
+        email: { type: string, format: email, maxLength: 150 }
+        direccion: { type: string, maxLength: 255 }
+
+    ClientePasswordUpdateRequest:
+      type: object
+      required: [password_actual, password_nueva]
+      properties:
+        password_actual: { type: string, format: password }
+        password_nueva:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
 
     InsumoCreateRequest:
       type: object

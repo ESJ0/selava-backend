@@ -28,6 +28,19 @@ func (fakeClienteAuthRoutesService) Login(context.Context, *models.ClienteLoginR
 func (fakeClienteAuthRoutesService) ObtenerPerfil(context.Context, int) (*models.ClienteResponse, error) {
 	return &models.ClienteResponse{ID: 42, Nombre: "Ana", Apellido: "Lopez", Activo: true}, nil
 }
+func (fakeClienteAuthRoutesService) ActualizarPerfil(context.Context, int, *models.ClientePerfilUpdateRequest) (*models.ClienteResponse, error) {
+	return &models.ClienteResponse{ID: 42}, nil
+}
+func (fakeClienteAuthRoutesService) CambiarPassword(context.Context, int, *models.ClientePasswordUpdateRequest) error {
+	return nil
+}
+func (fakeClienteAuthRoutesService) GuardarFotoPerfil(context.Context, int, []byte, string) error {
+	return nil
+}
+func (fakeClienteAuthRoutesService) ObtenerFotoPerfil(context.Context, int) (*models.ClienteFotoPerfil, error) {
+	return &models.ClienteFotoPerfil{Contenido: []byte("foto"), Tipo: "image/png"}, nil
+}
+func (fakeClienteAuthRoutesService) EliminarFotoPerfil(context.Context, int) error { return nil }
 
 func clienteAuthRouter() http.Handler {
 	clienteAuthController := controller.NewClienteAuthController(fakeClienteAuthRoutesService{})

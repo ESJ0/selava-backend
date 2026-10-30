@@ -11,6 +11,7 @@ import (
 	"github.com/ESJ0/selava-backend/internal/controller"
 	"github.com/ESJ0/selava-backend/internal/middleware"
 	"github.com/ESJ0/selava-backend/internal/models"
+	"github.com/ESJ0/selava-backend/internal/repository"
 	"github.com/ESJ0/selava-backend/internal/service"
 )
 
@@ -27,6 +28,17 @@ func (authClienteRouteStub) Login(context.Context, *models.ClienteLoginRequest) 
 func (authClienteRouteStub) ObtenerPerfil(context.Context, int) (*models.ClienteResponse, error) {
 	return &models.ClienteResponse{ID: 1, Activo: true}, nil
 }
+func (authClienteRouteStub) ActualizarPerfil(context.Context, int, *models.ClientePerfilUpdateRequest) (*models.ClienteResponse, error) {
+	return &models.ClienteResponse{ID: 1}, nil
+}
+func (authClienteRouteStub) CambiarPassword(context.Context, int, *models.ClientePasswordUpdateRequest) error {
+	return nil
+}
+func (authClienteRouteStub) GuardarFotoPerfil(context.Context, int, []byte, string) error { return nil }
+func (authClienteRouteStub) ObtenerFotoPerfil(context.Context, int) (*models.ClienteFotoPerfil, error) {
+	return nil, repository.ErrCuentaClienteNoEncontrada
+}
+func (authClienteRouteStub) EliminarFotoPerfil(context.Context, int) error { return nil }
 
 type pedidosClienteRouteRepo struct {
 	service.PedidoRepository

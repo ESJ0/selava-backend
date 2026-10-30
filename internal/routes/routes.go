@@ -40,6 +40,11 @@ func newRouter(clienteController *controller.ClienteController, servicioControll
 		r.Route("/api/cliente", func(r chi.Router) {
 			r.Use(authMW.AuthenticateCliente)
 			r.Get("/me", clienteAuthController.Me)
+			r.Put("/me", clienteAuthController.ActualizarPerfil)
+			r.Put("/me/password", clienteAuthController.CambiarPassword)
+			r.Get("/me/foto", clienteAuthController.FotoPerfil)
+			r.Put("/me/foto", clienteAuthController.GuardarFotoPerfil)
+			r.Delete("/me/foto", clienteAuthController.EliminarFotoPerfil)
 			r.Get("/pedidos", pedidoController.ListarPropios)
 			r.Get("/pedidos/{pedidoID}", pedidoController.ObtenerDetallePropio)
 			r.Get("/pedidos/{pedidoID}/historial-estados", pedidoController.ObtenerHistorialEstadosPropio)

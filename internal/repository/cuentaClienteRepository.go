@@ -129,14 +129,14 @@ func (r *CuentaClienteRepository) GetClienteActivoByID(ctx context.Context, clie
 	err := r.db.QueryRow(ctx, `
 		SELECT c.id, c.nombre, c.apellido, c.telefono,
 		       COALESCE(c.email, ''), COALESCE(c.direccion, ''),
-		       c.activo, c.created_at, c.updated_at
+		       c.activo, c.created_at, c.updated_at, c.foto_perfil IS NOT NULL
 		FROM usuarios cc
 		JOIN clientes c ON c.id = cc.cliente_id
 		WHERE cc.cliente_id = $1 AND cc.rol_id = 4 AND cc.activo = TRUE AND c.activo = TRUE
 	`, clienteID).Scan(
 		&cliente.ID, &cliente.Nombre, &cliente.Apellido, &cliente.Telefono,
 		&cliente.Email, &cliente.Direccion, &cliente.Activo,
-		&cliente.CreatedAt, &cliente.UpdatedAt,
+		&cliente.CreatedAt, &cliente.UpdatedAt, &cliente.TieneFotoPerfil,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -145,6 +145,92 @@ func (r *CuentaClienteRepository) GetClienteActivoByID(ctx context.Context, clie
 		return nil, fmt.Errorf("obteniendo perfil de cuenta cliente: %w", err)
 	}
 	return &cliente, nil
+}
+
+func (r *CuentaClienteRepository) ActualizarPerfil(ctx context.Context, clienteID int, req *models.ClientePerfilUpdateRequest) (*models.Cliente, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("iniciando actualizacion de perfil: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	var cliente models.Cliente
+	err = tx.QueryRow(ctx, `UPDATE clientes SET nombre=$2, apellido=$3, telefono=$4, email=$5, direccion=$6, updated_at=NOW()
+		WHERE id=$1 AND activo=TRUE RETURNING id,nombre,apellido,telefono,email,direccion,activo,created_at,updated_at,foto_perfil IS NOT NULL`,
+		clienteID, req.Nombre, req.Apellido, req.Telefono, req.Email, req.Direccion).Scan(
+		&cliente.ID, &cliente.Nombre, &cliente.Apellido, &cliente.Telefono, &cliente.Email, &cliente.Direccion,
+		&cliente.Activo, &cliente.CreatedAt, &cliente.UpdatedAt, &cliente.TieneFotoPerfil)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrCuentaClienteNoEncontrada
+		}
+		return nil, cuentaClienteWriteError("actualizando perfil de cliente", err)
+	}
+	_, err = tx.Exec(ctx, `UPDATE usuarios SET nombre=$2, apellido=$3, telefono=$4, email=$5, updated_at=NOW()
+		WHERE cliente_id=$1 AND rol_id=4 AND activo=TRUE`, clienteID, req.Nombre, req.Apellido, req.Telefono, req.Email)
+	if err != nil {
+		return nil, cuentaClienteWriteError("actualizando cuenta de cliente", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("confirmando actualizacion de perfil: %w", err)
+	}
+	return &cliente, nil
+}
+
+func (r *CuentaClienteRepository) GetPasswordHashByClienteID(ctx context.Context, clienteID int) (string, error) {
+	var hash string
+	err := r.db.QueryRow(ctx, `SELECT password_hash FROM usuarios WHERE cliente_id=$1 AND rol_id=4 AND activo=TRUE`, clienteID).Scan(&hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrCuentaClienteNoEncontrada
+	}
+	if err != nil {
+		return "", fmt.Errorf("obteniendo credenciales de cliente: %w", err)
+	}
+	return hash, nil
+}
+
+func (r *CuentaClienteRepository) ActualizarPassword(ctx context.Context, clienteID int, hash string) error {
+	tag, err := r.db.Exec(ctx, `UPDATE usuarios SET password_hash=$2, updated_at=NOW() WHERE cliente_id=$1 AND rol_id=4 AND activo=TRUE`, clienteID, hash)
+	if err != nil {
+		return fmt.Errorf("actualizando password de cliente: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCuentaClienteNoEncontrada
+	}
+	return nil
+}
+
+func (r *CuentaClienteRepository) GuardarFotoPerfil(ctx context.Context, clienteID int, foto []byte, tipo string) error {
+	tag, err := r.db.Exec(ctx, `UPDATE clientes SET foto_perfil=$2, foto_perfil_tipo=$3, updated_at=NOW() WHERE id=$1 AND activo=TRUE`, clienteID, foto, tipo)
+	if err != nil {
+		return fmt.Errorf("guardando foto de perfil: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCuentaClienteNoEncontrada
+	}
+	return nil
+}
+
+func (r *CuentaClienteRepository) ObtenerFotoPerfil(ctx context.Context, clienteID int) (*models.ClienteFotoPerfil, error) {
+	var foto models.ClienteFotoPerfil
+	err := r.db.QueryRow(ctx, `SELECT foto_perfil, foto_perfil_tipo FROM clientes WHERE id=$1 AND activo=TRUE AND foto_perfil IS NOT NULL`, clienteID).Scan(&foto.Contenido, &foto.Tipo)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrCuentaClienteNoEncontrada
+	}
+	if err != nil {
+		return nil, fmt.Errorf("obteniendo foto de perfil: %w", err)
+	}
+	return &foto, nil
+}
+
+func (r *CuentaClienteRepository) EliminarFotoPerfil(ctx context.Context, clienteID int) error {
+	tag, err := r.db.Exec(ctx, `UPDATE clientes SET foto_perfil=NULL, foto_perfil_tipo=NULL, updated_at=NOW() WHERE id=$1 AND activo=TRUE`, clienteID)
+	if err != nil {
+		return fmt.Errorf("eliminando foto de perfil: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCuentaClienteNoEncontrada
+	}
+	return nil
 }
 
 func (r *CuentaClienteRepository) MarcarUltimoAcceso(ctx context.Context, cuentaID int) error {
