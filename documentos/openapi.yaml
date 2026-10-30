@@ -2007,9 +2007,25 @@ paths:
       x-roles: [Administrador]
       summary: Cuenta los pedidos por su estado actual
       description: >
-        Devuelve el total de pedidos activos agrupado por el estado actual.
+        Devuelve los pedidos activos recibidos dentro del periodo solicitado,
+        agrupados por el estado actual. Ambas fechas son inclusivas.
         Incluye todos los estados del catalogo, aun cuando no tengan pedidos,
         ordenados segun el flujo configurado.
+      parameters:
+        - name: fecha_inicio
+          in: query
+          required: true
+          description: Primer dia incluido en el reporte.
+          schema:
+            type: string
+            format: date
+        - name: fecha_fin
+          in: query
+          required: true
+          description: Ultimo dia incluido en el reporte.
+          schema:
+            type: string
+            format: date
       responses:
         "200":
           description: Conteo actual de pedidos por estado.
@@ -3235,8 +3251,14 @@ components:
 
     ReportePedidosEstado:
       type: object
-      required: [total_pedidos, pedidos_por_estado]
+      required: [fecha_inicio, fecha_fin, total_pedidos, pedidos_por_estado]
       properties:
+        fecha_inicio:
+          type: string
+          format: date
+        fecha_fin:
+          type: string
+          format: date
         total_pedidos:
           type: integer
           minimum: 0
@@ -3245,6 +3267,8 @@ components:
           items:
             $ref: "#/components/schemas/ReportePedidosEstadoDetalle"
       example:
+        fecha_inicio: "2026-09-01"
+        fecha_fin: "2026-09-30"
         total_pedidos: 8
         pedidos_por_estado:
           - estado:

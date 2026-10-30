@@ -1,6 +1,9 @@
 package repository
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestReportePedidosEstadoCuentaEstadoActualEIncluyeEstadosVacios(t *testing.T) {
 	f := newSprint3Fixture(t)
@@ -10,7 +13,9 @@ func TestReportePedidosEstadoCuentaEstadoActualEIncluyeEstadosVacios(t *testing.
 	_, err := f.db.Exec(f.ctx, `UPDATE pedidos SET estado_actual_id=$1 WHERE id=$2`, rackeadoID, pedidoRackeado.ID)
 	mustSprint3(t, err)
 
-	reporte, err := NewReportePedidosEstadoRepository(f.db).Get(f.ctx)
+	inicio := time.Now().AddDate(0, 0, -1)
+	fin := time.Now().AddDate(0, 0, 1)
+	reporte, err := NewReportePedidosEstadoRepository(f.db).GetByPeriodo(f.ctx, inicio, fin)
 	mustSprint3(t, err)
 
 	if reporte.TotalPedidos != 2 {
