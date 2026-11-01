@@ -83,3 +83,13 @@ func TestSEL109RolesYContratoCotizacion(t *testing.T) {
 		t.Fatal(res.Code, res.Body.String())
 	}
 }
+
+func TestPromocionesPublicasNoRequierenToken(t *testing.T) {
+	router := chi.NewRouter()
+	RegisterPromociones(router, controller.NewPromocionController(service.NewPromocionService(&promoRouteRepo{})), "public-test")
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, httptest.NewRequest("GET", "/api/public/promociones", nil))
+	if res.Code != 200 || strings.TrimSpace(res.Body.String()) != "[]" {
+		t.Fatalf("esperaba 200 [] sin token, obtuve %d %s", res.Code, res.Body.String())
+	}
+}
