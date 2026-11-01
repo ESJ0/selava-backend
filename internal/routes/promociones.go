@@ -8,6 +8,7 @@ import (
 
 func RegisterPromociones(r chi.Router, c *controller.PromocionController, jwtSecret string) {
 	auth := middleware.NewAuthMiddleware(jwtSecret)
+	r.Get("/api/public/promociones", c.ListarPublicas)
 	r.Route("/api/promociones", func(r chi.Router) {
 		r.Use(auth.Authenticate)
 		r.Use(auth.RequireRoles(middleware.RolAdministrador, middleware.RolRecepcionista))

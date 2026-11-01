@@ -65,3 +65,17 @@ type PromocionCotizacion struct {
 	Grupos []PromocionCotizacionGrupo `json:"grupos"`
 	Total  float64                    `json:"total"`
 }
+
+// PromocionPublica es la vista de una promoción vigente para la landing (sin datos internos).
+type PromocionPublica struct {
+	ID                int            `json:"id"`
+	Nombre            string         `json:"nombre"`
+	Descripcion       string         `json:"descripcion"`
+	TipoPrendaID      int            `json:"tipo_prenda_id"`
+	TipoPrendaNombre  string         `json:"tipo_prenda_nombre"`
+	ModalidadCobro    ModalidadCobro `json:"modalidad_cobro"`
+	MedidaRequerida   float64        `json:"medida_requerida"`
+	PrecioPromocional float64        `json:"precio_promocional"`
+	FechaInicio       time.Time      `json:"fecha_inicio"`
+	FechaFin          time.Time      `json:"fecha_fin"`
+}

@@ -10,6 +10,7 @@ import (
 	"github.com/ESJ0/selava-backend/internal/validator"
 	"io"
 	"net/http"
+	"time"
 )
 
 type PromocionController struct{ service *service.PromocionService }
@@ -49,6 +50,18 @@ func (c *PromocionController) Listar(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
 	result, err := c.service.List(ctx)
+	if err != nil {
+		c.handleError(w, err)
+		return
+	}
+	respondJSON(w, 200, result)
+}
+
+// ListarPublicas expone las promociones vigentes sin autenticación (landing pública).
+func (c *PromocionController) ListarPublicas(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+	result, err := c.service.ListPublicas(ctx, time.Now())
 	if err != nil {
 		c.handleError(w, err)
 		return
