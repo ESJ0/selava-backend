@@ -24,7 +24,7 @@ func (r *ClienteRepository) Create(ctx context.Context, c *models.ClienteCreateR
 	query := `
 		INSERT INTO clientes (nombre, apellido, telefono, email, direccion, nit)
 		VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''))
-		RETURNING id, nombre, apellido, telefono, email, direccion, COALESCE(nit, ''), activo, created_at, updated_at
+		RETURNING id, nombre, apellido, telefono, COALESCE(email, ''), COALESCE(direccion, ''), COALESCE(nit, ''), activo, created_at, updated_at
 	`
 	var cliente models.Cliente
 	err := r.db.QueryRow(ctx, query, c.Nombre, c.Apellido, c.Telefono, c.Email, c.Direccion, c.NIT).Scan(
@@ -39,7 +39,7 @@ func (r *ClienteRepository) Create(ctx context.Context, c *models.ClienteCreateR
 
 func (r *ClienteRepository) GetByID(ctx context.Context, id int) (*models.Cliente, error) {
 	query := `
-		SELECT id, nombre, apellido, telefono, email, direccion, COALESCE(nit, ''), activo, created_at, updated_at
+		SELECT id, nombre, apellido, telefono, COALESCE(email, ''), COALESCE(direccion, ''), COALESCE(nit, ''), activo, created_at, updated_at
 		FROM clientes
 		WHERE id = $1
 	`
@@ -59,7 +59,7 @@ func (r *ClienteRepository) GetByID(ctx context.Context, id int) (*models.Client
 
 func (r *ClienteRepository) List(ctx context.Context) ([]models.Cliente, error) {
 	query := `
-		SELECT id, nombre, apellido, telefono, email, direccion, COALESCE(nit, ''), activo, created_at, updated_at
+		SELECT id, nombre, apellido, telefono, COALESCE(email, ''), COALESCE(direccion, ''), COALESCE(nit, ''), activo, created_at, updated_at
 		FROM clientes
 		ORDER BY id
 	`
@@ -99,7 +99,7 @@ func (r *ClienteRepository) Update(ctx context.Context, id int, u *models.Client
 			nit        = CASE WHEN $8::text IS NULL THEN nit ELSE NULLIF($8::text, '') END,
 			updated_at = NOW()
 		WHERE id = $7
-		RETURNING id, nombre, apellido, telefono, email, direccion, COALESCE(nit, ''), activo, created_at, updated_at
+		RETURNING id, nombre, apellido, telefono, COALESCE(email, ''), COALESCE(direccion, ''), COALESCE(nit, ''), activo, created_at, updated_at
 	`
 	var cliente models.Cliente
 	err := r.db.QueryRow(ctx, query,
