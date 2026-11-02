@@ -22,14 +22,14 @@ func NewClienteRepository(db *pgxpool.Pool) *ClienteRepository {
 
 func (r *ClienteRepository) Create(ctx context.Context, c *models.ClienteCreateRequest) (*models.Cliente, error) {
 	query := `
-		INSERT INTO clientes (nombre, apellido, telefono, email, direccion)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, nombre, apellido, telefono, email, direccion, activo, created_at, updated_at
+		INSERT INTO clientes (nombre, apellido, telefono, email, direccion, nit)
+		VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''))
+		RETURNING id, nombre, apellido, telefono, email, direccion, COALESCE(nit, ''), activo, created_at, updated_at
 	`
 	var cliente models.Cliente
-	err := r.db.QueryRow(ctx, query, c.Nombre, c.Apellido, c.Telefono, c.Email, c.Direccion).Scan(
+	err := r.db.QueryRow(ctx, query, c.Nombre, c.Apellido, c.Telefono, c.Email, c.Direccion, c.NIT).Scan(
 		&cliente.ID, &cliente.Nombre, &cliente.Apellido, &cliente.Telefono,
-		&cliente.Email, &cliente.Direccion, &cliente.Activo, &cliente.CreatedAt, &cliente.UpdatedAt,
+		&cliente.Email, &cliente.Direccion, &cliente.NIT, &cliente.Activo, &cliente.CreatedAt, &cliente.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error creando cliente: %w", err)
@@ -39,14 +39,14 @@ func (r *ClienteRepository) Create(ctx context.Context, c *models.ClienteCreateR
 
 func (r *ClienteRepository) GetByID(ctx context.Context, id int) (*models.Cliente, error) {
 	query := `
-		SELECT id, nombre, apellido, telefono, email, direccion, activo, created_at, updated_at
+		SELECT id, nombre, apellido, telefono, email, direccion, COALESCE(nit, ''), activo, created_at, updated_at
 		FROM clientes
 		WHERE id = $1
 	`
 	var cliente models.Cliente
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&cliente.ID, &cliente.Nombre, &cliente.Apellido, &cliente.Telefono,
-		&cliente.Email, &cliente.Direccion, &cliente.Activo, &cliente.CreatedAt, &cliente.UpdatedAt,
+		&cliente.Email, &cliente.Direccion, &cliente.NIT, &cliente.Activo, &cliente.CreatedAt, &cliente.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -59,7 +59,7 @@ func (r *ClienteRepository) GetByID(ctx context.Context, id int) (*models.Client
 
 func (r *ClienteRepository) List(ctx context.Context) ([]models.Cliente, error) {
 	query := `
-		SELECT id, nombre, apellido, telefono, email, direccion, activo, created_at, updated_at
+		SELECT id, nombre, apellido, telefono, email, direccion, COALESCE(nit, ''), activo, created_at, updated_at
 		FROM clientes
 		ORDER BY id
 	`
@@ -74,7 +74,7 @@ func (r *ClienteRepository) List(ctx context.Context) ([]models.Cliente, error) 
 		var cliente models.Cliente
 		if err := rows.Scan(
 			&cliente.ID, &cliente.Nombre, &cliente.Apellido, &cliente.Telefono,
-			&cliente.Email, &cliente.Direccion, &cliente.Activo, &cliente.CreatedAt, &cliente.UpdatedAt,
+			&cliente.Email, &cliente.Direccion, &cliente.NIT, &cliente.Activo, &cliente.CreatedAt, &cliente.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("error leyendo cliente: %w", err)
 		}
@@ -96,16 +96,17 @@ func (r *ClienteRepository) Update(ctx context.Context, id int, u *models.Client
 			email      = COALESCE($4, email),
 			direccion  = COALESCE($5, direccion),
 			activo     = COALESCE($6, activo),
+			nit        = CASE WHEN $8::text IS NULL THEN nit ELSE NULLIF($8::text, '') END,
 			updated_at = NOW()
 		WHERE id = $7
-		RETURNING id, nombre, apellido, telefono, email, direccion, activo, created_at, updated_at
+		RETURNING id, nombre, apellido, telefono, email, direccion, COALESCE(nit, ''), activo, created_at, updated_at
 	`
 	var cliente models.Cliente
 	err := r.db.QueryRow(ctx, query,
-		u.Nombre, u.Apellido, u.Telefono, u.Email, u.Direccion, u.Activo, id,
+		u.Nombre, u.Apellido, u.Telefono, u.Email, u.Direccion, u.Activo, id, u.NIT,
 	).Scan(
 		&cliente.ID, &cliente.Nombre, &cliente.Apellido, &cliente.Telefono,
-		&cliente.Email, &cliente.Direccion, &cliente.Activo, &cliente.CreatedAt, &cliente.UpdatedAt,
+		&cliente.Email, &cliente.Direccion, &cliente.NIT, &cliente.Activo, &cliente.CreatedAt, &cliente.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
