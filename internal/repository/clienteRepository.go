@@ -23,7 +23,7 @@ func NewClienteRepository(db *pgxpool.Pool) *ClienteRepository {
 func (r *ClienteRepository) Create(ctx context.Context, c *models.ClienteCreateRequest) (*models.Cliente, error) {
 	query := `
 		INSERT INTO clientes (nombre, apellido, telefono, email, direccion, nit)
-		VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''))
+		VALUES ($1, $2, $3, NULLIF(BTRIM($4), ''), NULLIF(BTRIM($5), ''), NULLIF($6, ''))
 		RETURNING id, nombre, apellido, telefono, COALESCE(email, ''), COALESCE(direccion, ''), COALESCE(nit, ''), activo, created_at, updated_at
 	`
 	var cliente models.Cliente
@@ -87,14 +87,16 @@ func (r *ClienteRepository) List(ctx context.Context) ([]models.Cliente, error) 
 }
 
 func (r *ClienteRepository) Update(ctx context.Context, id int, u *models.ClienteUpdateRequest) (*models.Cliente, error) {
-	// COALESCE permite actualizar solo los campos que vienen en el request
+	// COALESCE permite actualizar solo los campos que vienen en el request.
+	// Email y dirección vacíos se guardan como NULL: email es UNIQUE y '' solo
+	// permitiría un cliente sin correo.
 	query := `
 		UPDATE clientes SET
 			nombre     = COALESCE($1, nombre),
 			apellido   = COALESCE($2, apellido),
 			telefono   = COALESCE($3, telefono),
-			email      = COALESCE($4, email),
-			direccion  = COALESCE($5, direccion),
+			email      = CASE WHEN $4::text IS NULL THEN email ELSE NULLIF(BTRIM($4::text), '') END,
+			direccion  = CASE WHEN $5::text IS NULL THEN direccion ELSE NULLIF(BTRIM($5::text), '') END,
 			activo     = COALESCE($6, activo),
 			nit        = CASE WHEN $8::text IS NULL THEN nit ELSE NULLIF($8::text, '') END,
 			updated_at = NOW()
