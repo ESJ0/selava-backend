@@ -30,9 +30,22 @@ func ParsePedidoList(req models.PedidoListRequest) (models.PedidoListFilter, Val
 	filter.EstadoID = parseInt(req.EstadoID, "estado_id", 0, 2147483647)
 	filter.Pagina = parseInt(req.Pagina, "pagina", 1, 1000000)
 	filter.Limite = parseInt(req.Limite, "limite", 20, 100)
+	filter.TipoPrendaID = parseInt(req.TipoPrendaID, "tipo_prenda_id", 0, 2147483647)
+	switch req.Seccion {
+	case "", "activos", "historial":
+		filter.Seccion = req.Seccion
+	default:
+		errs = append(errs, FieldError{Field: "seccion", Message: "debe ser activos o historial"})
+	}
+	switch req.Saldo {
+	case "", "pendiente", "pagado":
+		filter.Saldo = req.Saldo
+	default:
+		errs = append(errs, FieldError{Field: "saldo", Message: "debe ser pendiente o pagado"})
+	}
 	if req.Orden != "" {
-		if req.Orden != "recientes" && req.Orden != "antiguos" {
-			errs = append(errs, FieldError{Field: "orden", Message: "debe ser recientes o antiguos"})
+		if req.Orden != "recientes" && req.Orden != "antiguos" && req.Orden != "prioridad" {
+			errs = append(errs, FieldError{Field: "orden", Message: "debe ser recientes, antiguos o prioridad"})
 		} else {
 			filter.Orden = req.Orden
 		}

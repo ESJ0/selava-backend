@@ -40,6 +40,10 @@ func TestPedidoListadoInvalidFilters(t *testing.T) {
 		{"date format", models.PedidoListRequest{FechaHasta: "05/10/2026"}},
 		{"reverse range", models.PedidoListRequest{FechaDesde: "2026-10-06", FechaHasta: "2026-10-05"}},
 		{"sort injection", models.PedidoListRequest{Orden: "DESC; DROP TABLE pedidos"}},
+		{"section unknown", models.PedidoListRequest{Seccion: "todos"}},
+		{"balance unknown", models.PedidoListRequest{Saldo: "debe"}},
+		{"garment type text", models.PedidoListRequest{TipoPrendaID: "abc"}},
+		{"garment type zero", models.PedidoListRequest{TipoPrendaID: "0"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, errs := ParsePedidoList(tc.req); !errs.HasErrors() {
@@ -54,5 +58,15 @@ func TestPedidoListadoOpenEndedDates(t *testing.T) {
 		if _, errs := ParsePedidoList(req); errs.HasErrors() {
 			t.Fatal(errs)
 		}
+	}
+}
+
+func TestPedidoListadoPortalFilters(t *testing.T) {
+	filter, errs := ParsePedidoList(models.PedidoListRequest{Seccion: "historial", Saldo: "pendiente", TipoPrendaID: "7", Orden: "prioridad"})
+	if errs.HasErrors() {
+		t.Fatal(errs)
+	}
+	if filter.Seccion != "historial" || filter.Saldo != "pendiente" || filter.TipoPrendaID != 7 || filter.Orden != "prioridad" {
+		t.Fatalf("filtro inesperado: %+v", filter)
 	}
 }
