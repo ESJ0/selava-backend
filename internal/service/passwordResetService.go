@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 	"time"
@@ -16,7 +17,10 @@ import (
 	"github.com/ESJ0/selava-backend/internal/validator"
 )
 
-const passwordResetTTL = 30 * time.Minute
+const (
+	passwordResetTTL = 30 * time.Minute
+	mailTimeout      = 45 * time.Second
+)
 
 type PasswordResetService struct {
 	usuarios *repository.UsuarioRepository
@@ -52,7 +56,17 @@ func (s *PasswordResetService) Solicitar(ctx context.Context, email string) erro
 		separator = "&"
 	}
 	link := s.resetURL + separator + "token=" + url.QueryEscape(raw)
-	return s.mailer.EnviarRecuperacion(ctx, usuario.Email, usuario.Nombre, link)
+	// El envío se hace fuera de la petición HTTP (que tiene pocos segundos de límite) para que
+	// un servidor SMTP lento no corte el correo; los errores quedan en el log.
+	send := func() {
+		mailCtx, cancel := context.WithTimeout(context.Background(), mailTimeout)
+		defer cancel()
+		if err := s.mailer.EnviarRecuperacion(mailCtx, usuario.Email, usuario.Nombre, link); err != nil {
+			log.Printf("no se pudo enviar el correo de recuperacion a %s: %v", usuario.Email, err)
+		}
+	}
+	go send()
+	return nil
 }
 
 func (s *PasswordResetService) Validar(ctx context.Context, token string) error {

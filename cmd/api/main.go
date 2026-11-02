@@ -63,7 +63,10 @@ func main() {
 	usuarioController := controller.NewUsuarioController(service.NewUsuarioService(usuarioRepo))
 	passwordMailer := service.PasswordMailer(service.DevelopmentMailer{})
 	if cfg.SMTPHost != "" {
-		passwordMailer = &service.SMTPMailer{Host: cfg.SMTPHost, Port: cfg.SMTPPort, User: cfg.SMTPUser, Password: cfg.SMTPPassword, From: cfg.SMTPFrom}
+		passwordMailer = &service.SMTPMailer{Host: cfg.SMTPHost, Port: cfg.SMTPPort, User: cfg.SMTPUser, Password: cfg.SMTPPassword, From: cfg.SMTPFrom, FromName: cfg.SMTPFromName}
+		log.Printf("recuperacion de contrasena: correos via SMTP %s:%s", cfg.SMTPHost, cfg.SMTPPort)
+	} else {
+		log.Printf("ADVERTENCIA: SMTP_HOST no esta configurado; los correos de recuperacion NO se enviaran (solo se registran en el log)")
 	}
 	passwordResetController := controller.NewPasswordResetController(service.NewPasswordResetService(
 		usuarioRepo,
