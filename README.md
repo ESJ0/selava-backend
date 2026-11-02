@@ -114,3 +114,15 @@ PASSWORD_RESET_URL=https://tu-portal-de-clientes/restablecer-contrasena
 
 Se admite `SMTP_PORT=465` (TLS directo) y `587` (STARTTLS). Las credenciales nunca se
 envían por una conexión sin cifrar.
+
+### Si el correo no llega
+
+1. Ejecuta `go run ./cmd/mailtest tu-correo@gmail.com` desde la carpeta del backend
+   (donde está el `.env`). Envía un correo de prueba y muestra el error exacto de SMTP.
+2. Revisa el log del backend al pedir la recuperación:
+   - `no existe una cuenta con el correo ...`: ese correo no está registrado (o está escrito distinto).
+   - `la cuenta ... esta inactiva`: la cuenta fue desactivada.
+   - `no se pudo enviar el correo ...`: error de SMTP (credenciales, puerto, red).
+   - `correo de recuperacion enviado a ...`: Gmail lo aceptó; revisa la carpeta de spam.
+3. La contraseña de aplicación de Gmail puede escribirse con o sin espacios.
+4. `PASSWORD_RESET_URL` debe apuntar a `/restablecer-contrasena` del portal de clientes.
