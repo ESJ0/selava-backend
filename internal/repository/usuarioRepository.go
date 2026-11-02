@@ -110,7 +110,7 @@ func (r *UsuarioRepository) Create(ctx context.Context, req *models.UsuarioCreat
 		var id int
 		err = tx.QueryRow(ctx, `
 			INSERT INTO clientes(nombre, apellido, telefono, email, direccion)
-			VALUES($1, $2, $3, LOWER(BTRIM($4)), $5) RETURNING id
+			VALUES($1, $2, $3, NULLIF(LOWER(BTRIM($4)), ''), NULLIF(BTRIM($5), '')) RETURNING id
 		`, req.Nombre, req.Apellido, req.Telefono, req.Email, req.Direccion).Scan(&id)
 		if err != nil {
 			return nil, usuarioWriteError("creando perfil de cliente", err)
