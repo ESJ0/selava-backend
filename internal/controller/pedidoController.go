@@ -52,12 +52,30 @@ func (pc *PedidoController) ListarPropios(w http.ResponseWriter, r *http.Request
 		EstadoID: query.Get("estado_id"), FechaDesde: query.Get("fecha_desde"),
 		FechaHasta: query.Get("fecha_hasta"), Pagina: query.Get("pagina"),
 		Limite: query.Get("limite"), Orden: query.Get("orden"),
+		Seccion: query.Get("seccion"), TipoPrendaID: query.Get("tipo_prenda_id"), Saldo: query.Get("saldo"),
 	})
 	if err != nil {
 		pc.handleServiceError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, result)
+}
+
+// TiposPrendaPropios lista los tipos de prenda de los pedidos del cliente autenticado.
+func (pc *PedidoController) TiposPrendaPropios(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+	claims, ok := middleware.ClienteClaimsFromContext(r.Context())
+	if !ok || claims.ClienteID <= 0 {
+		respondError(w, http.StatusUnauthorized, "token de autenticacion requerido")
+		return
+	}
+	tipos, err := pc.service.TiposPrendaCliente(ctx, claims.ClienteID)
+	if err != nil {
+		pc.handleServiceError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, tipos)
 }
 
 func (pc *PedidoController) Crear(w http.ResponseWriter, r *http.Request) {

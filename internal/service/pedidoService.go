@@ -47,6 +47,7 @@ func (s *PedidoService) ListarPedidosCliente(ctx context.Context, clienteID int,
 		return nil, errs
 	}
 	filter.ClienteID = clienteID
+	filter.SoloVigentes = true
 	result, err := s.repo.List(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -54,15 +55,36 @@ func (s *PedidoService) ListarPedidosCliente(ctx context.Context, clienteID int,
 	response := &models.PedidosPropiosResponse{
 		Pedidos: make([]models.PedidoPropioResumen, 0, len(result.Pedidos)),
 		Total:   result.Total, Pagina: result.Pagina, Limite: result.Limite,
+		Resumen: result.Resumen,
 	}
 	for _, pedido := range result.Pedidos {
 		response.Pedidos = append(response.Pedidos, models.PedidoPropioResumen{
 			ID: pedido.ID, FechaRecibido: pedido.FechaRecibido,
 			FechaEntregaEstimada: pedido.FechaEntregaEstimada, Total: pedido.Total,
+			TotalPagado: pedido.TotalPagado, SaldoPendiente: pedido.SaldoPendiente,
+			EnProceso: pedido.EnProceso, Cancelado: pedido.Cancelado,
+			TiposPrenda: pedido.TiposPrenda, CantidadPrendas: pedido.CantidadPrendas,
 			EstadoActual: pedido.EstadoActual,
 		})
 	}
 	return response, nil
+}
+
+// tiposPrendaClienteRepo es opcional para no obligar a todos los repositorios de prueba a implementarlo.
+type tiposPrendaClienteRepo interface {
+	TiposPrendaCliente(ctx context.Context, clienteID int) ([]models.TipoPrendaOpcion, error)
+}
+
+// TiposPrendaCliente devuelve los tipos de prenda presentes en los pedidos del cliente (para filtros del portal).
+func (s *PedidoService) TiposPrendaCliente(ctx context.Context, clienteID int) ([]models.TipoPrendaOpcion, error) {
+	if clienteID <= 0 {
+		return nil, repository.ErrClienteNoEncontrado
+	}
+	repo, ok := s.repo.(tiposPrendaClienteRepo)
+	if !ok {
+		return []models.TipoPrendaOpcion{}, nil
+	}
+	return repo.TiposPrendaCliente(ctx, clienteID)
 }
 
 func (s *PedidoService) CrearPedido(ctx context.Context, req *models.PedidoCreateRequest, usuarioID int) (*models.PedidoConPrendas, error) {

@@ -46,6 +46,7 @@ func newRouter(clienteController *controller.ClienteController, servicioControll
 			r.Put("/me/foto", clienteAuthController.GuardarFotoPerfil)
 			r.Delete("/me/foto", clienteAuthController.EliminarFotoPerfil)
 			r.Get("/pedidos", pedidoController.ListarPropios)
+			r.Get("/pedidos/tipos-prenda", pedidoController.TiposPrendaPropios)
 			r.Get("/pedidos/{pedidoID}", pedidoController.ObtenerDetallePropio)
 			r.Get("/pedidos/{pedidoID}/historial-estados", pedidoController.ObtenerHistorialEstadosPropio)
 			r.Get("/pedidos/{pedidoID}/pagos", pagoController.ObtenerHistorialPropio)
