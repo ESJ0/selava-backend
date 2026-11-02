@@ -25,6 +25,7 @@ func (s *ClienteService) CrearCliente(ctx context.Context, req *models.ClienteCr
 	req.Nombre = strings.TrimSpace(req.Nombre)
 	req.Apellido = strings.TrimSpace(req.Apellido)
 	req.Email = strings.TrimSpace(req.Email)
+	req.NIT = validator.NormalizeNIT(req.NIT)
 
 	if errs := validator.ValidateClienteCreate(req); errs.HasErrors() {
 		return nil, errs
@@ -56,6 +57,10 @@ func (s *ClienteService) ListarClientes(ctx context.Context) ([]models.Cliente, 
 }
 
 func (s *ClienteService) ActualizarCliente(ctx context.Context, id int, req *models.ClienteUpdateRequest) (*models.Cliente, error) {
+	if req.NIT != nil {
+		nit := validator.NormalizeNIT(*req.NIT)
+		req.NIT = &nit
+	}
 
 	if errs := validator.ValidateClienteUpdate(req); errs.HasErrors() {
 		return nil, errs

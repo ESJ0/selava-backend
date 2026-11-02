@@ -29,6 +29,7 @@ func ValidateClienteCreate(req *models.ClienteCreateRequest) ValidationErrors {
 	errs = append(errs, validateTelefono(req.Telefono)...)
 	errs = append(errs, validateEmail(req.Email)...)
 	errs = append(errs, validateDireccion(req.Direccion)...)
+	errs = append(errs, validateNIT(req.NIT)...)
 	return errs
 }
 
@@ -48,6 +49,9 @@ func ValidateClienteUpdate(req *models.ClienteUpdateRequest) ValidationErrors {
 	}
 	if req.Direccion != nil {
 		errs = append(errs, validateDireccion(*req.Direccion)...)
+	}
+	if req.NIT != nil {
+		errs = append(errs, validateNIT(*req.NIT)...)
 	}
 	return errs
 }

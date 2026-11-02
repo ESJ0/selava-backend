@@ -10,6 +10,7 @@ type Cliente struct {
 	Telefono        string    `json:"telefono"`
 	Email           string    `json:"email,omitempty"`
 	Direccion       string    `json:"direccion,omitempty"`
+	NIT             string    `json:"nit,omitempty"`
 	Activo          bool      `json:"activo"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
@@ -23,6 +24,7 @@ type ClienteCreateRequest struct {
 	Telefono  string `json:"telefono"`
 	Email     string `json:"email"`
 	Direccion string `json:"direccion"`
+	NIT       string `json:"nit"`
 }
 
 // Payload que se recibe al actualizar un cliente (PATCH/PUT)
@@ -32,6 +34,7 @@ type ClienteUpdateRequest struct {
 	Telefono  *string `json:"telefono"`
 	Email     *string `json:"email"`
 	Direccion *string `json:"direccion"`
+	NIT       *string `json:"nit"`
 	Activo    *bool   `json:"activo"`
 }
 
@@ -43,6 +46,7 @@ type ClienteResponse struct {
 	Telefono        string    `json:"telefono"`
 	Email           string    `json:"email,omitempty"`
 	Direccion       string    `json:"direccion,omitempty"`
+	NIT             string    `json:"nit,omitempty"`
 	Activo          bool      `json:"activo"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
@@ -76,6 +80,7 @@ func (c *Cliente) ToResponse() ClienteResponse {
 		Telefono:        c.Telefono,
 		Email:           c.Email,
 		Direccion:       c.Direccion,
+		NIT:             c.NIT,
 		Activo:          c.Activo,
 		CreatedAt:       c.CreatedAt,
 		UpdatedAt:       c.UpdatedAt,
