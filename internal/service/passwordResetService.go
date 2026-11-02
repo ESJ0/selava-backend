@@ -52,7 +52,7 @@ func (s *PasswordResetService) Solicitar(ctx context.Context, email string) erro
 	if err != nil {
 		return err
 	}
-	if err = s.tokens.Crear(ctx, usuario.ID, hashToken(raw), time.Now().Add(passwordResetTTL)); err != nil {
+	if err = s.tokens.Crear(ctx, usuario.ID, hashToken(raw), passwordResetTTL); err != nil {
 		return err
 	}
 	separator := "?"

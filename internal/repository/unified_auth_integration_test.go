@@ -39,7 +39,7 @@ func TestPasswordResetTokenEsDeUnSoloUso(t *testing.T) {
 	f := newSprint3Fixture(t)
 	repo := NewPasswordResetRepository(f.db)
 	const tokenHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	mustSprint3(t, repo.Crear(f.ctx, f.userID, tokenHash, time.Now().Add(30*time.Minute)))
+	mustSprint3(t, repo.Crear(f.ctx, f.userID, tokenHash, 30*time.Minute))
 	mustSprint3(t, repo.Validar(f.ctx, tokenHash))
 	mustSprint3(t, repo.Consumir(f.ctx, tokenHash, "nuevo-hash-seguro"))
 	if err := repo.Validar(f.ctx, tokenHash); !errors.Is(err, ErrTokenRecuperacionInvalido) {

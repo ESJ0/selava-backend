@@ -18,7 +18,10 @@ func NewPasswordResetRepository(db *pgxpool.Pool) *PasswordResetRepository {
 	return &PasswordResetRepository{db: db}
 }
 
-func (r *PasswordResetRepository) Crear(ctx context.Context, usuarioID int, tokenHash string, expiresAt time.Time) error {
+// Crear guarda un token que vence ttl después de NOW() del servidor de base de datos.
+// El vencimiento se calcula en SQL para que la zona horaria del backend (p. ej. Guatemala, UTC-6)
+// no lo desfase respecto a NOW() y a la columna created_at.
+func (r *PasswordResetRepository) Crear(ctx context.Context, usuarioID int, tokenHash string, ttl time.Duration) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("iniciando token de recuperacion: %w", err)
@@ -27,7 +30,7 @@ func (r *PasswordResetRepository) Crear(ctx context.Context, usuarioID int, toke
 	if _, err = tx.Exec(ctx, `UPDATE password_reset_tokens SET used_at = NOW() WHERE usuario_id = $1 AND used_at IS NULL`, usuarioID); err != nil {
 		return fmt.Errorf("invalidando tokens anteriores: %w", err)
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO password_reset_tokens(usuario_id, token_hash, expires_at) VALUES($1,$2,$3)`, usuarioID, tokenHash, expiresAt); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO password_reset_tokens(usuario_id, token_hash, expires_at) VALUES($1,$2,NOW() + make_interval(secs => $3))`, usuarioID, tokenHash, ttl.Seconds()); err != nil {
 		return fmt.Errorf("creando token de recuperacion: %w", err)
 	}
 	return tx.Commit(ctx)
