@@ -87,3 +87,30 @@ paquetes. El alta de pedido acepta `promociones: [{tipo_prenda_id, promocion_id}
 y vuelve a validar todos los importes, medidas y vigencias al guardar.
 Los detalles administrativos y propios incluyen `promociones_aplicadas`.
 Consultar [cálculo exacto, contrato e históricos](documentos/sel-109-promociones.md).
+
+## Correo de recuperación de contraseña
+
+`POST /api/auth/password/forgot` crea un token de un solo uso (30 minutos) y envía un
+correo con el enlace a `PASSWORD_RESET_URL?token=...`. El envío se hace en segundo plano,
+así que la respuesta siempre es la misma (no revela si el correo existe) y cualquier
+error de SMTP queda en el log del servidor.
+
+Si `SMTP_HOST` está vacío el servidor arranca con una advertencia y **no envía correos**:
+solo escribe el enlace en el log. Para enviarlos con Gmail:
+
+1. Activa la verificación en dos pasos en la cuenta de Google que enviará los correos.
+2. Crea una contraseña de aplicación en <https://myaccount.google.com/apppasswords>.
+3. Configura:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=tu-cuenta@gmail.com
+SMTP_PASSWORD=la-contraseña-de-aplicación
+SMTP_FROM=tu-cuenta@gmail.com
+SMTP_FROM_NAME=SELAVA
+PASSWORD_RESET_URL=https://tu-portal-de-clientes/restablecer-contrasena
+```
+
+Se admite `SMTP_PORT=465` (TLS directo) y `587` (STARTTLS). Las credenciales nunca se
+envían por una conexión sin cifrar.

@@ -23,6 +23,7 @@ type Config struct {
 	SMTPUser         string
 	SMTPPassword     string
 	SMTPFrom         string
+	SMTPFromName     string
 	PasswordResetURL string
 }
 
@@ -42,7 +43,8 @@ func Load() (*Config, error) {
 		SMTPPort:         envOrDefault("SMTP_PORT", "587"),
 		SMTPUser:         os.Getenv("SMTP_USER"),
 		SMTPPassword:     os.Getenv("SMTP_PASSWORD"),
-		SMTPFrom:         envOrDefault("SMTP_FROM", "no-reply@selava.local"),
+		SMTPFrom:         os.Getenv("SMTP_FROM"),
+		SMTPFromName:     envOrDefault("SMTP_FROM_NAME", "SELAVA"),
 		PasswordResetURL: envOrDefault("PASSWORD_RESET_URL", "http://localhost:5174/restablecer-contrasena"),
 	}
 
