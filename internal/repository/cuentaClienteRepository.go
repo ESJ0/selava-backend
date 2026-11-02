@@ -37,7 +37,7 @@ func (r *CuentaClienteRepository) Registrar(ctx context.Context, req *models.Cli
 	err = tx.QueryRow(ctx, `
 		INSERT INTO clientes(nombre, apellido, telefono, email, direccion)
 		VALUES($1, $2, $3, $4, $5)
-		RETURNING id, nombre, apellido, telefono, email, direccion, activo, created_at, updated_at
+		RETURNING id, nombre, apellido, telefono, COALESCE(email, ''), COALESCE(direccion, ''), activo, created_at, updated_at
 	`, req.Nombre, req.Apellido, req.Telefono, req.Email, req.Direccion).Scan(
 		&resultado.Cliente.ID,
 		&resultado.Cliente.Nombre,
@@ -155,7 +155,7 @@ func (r *CuentaClienteRepository) ActualizarPerfil(ctx context.Context, clienteI
 	defer tx.Rollback(ctx)
 	var cliente models.Cliente
 	err = tx.QueryRow(ctx, `UPDATE clientes SET nombre=$2, apellido=$3, telefono=$4, email=$5, direccion=$6, updated_at=NOW()
-		WHERE id=$1 AND activo=TRUE RETURNING id,nombre,apellido,telefono,email,direccion,activo,created_at,updated_at,foto_perfil IS NOT NULL`,
+		WHERE id=$1 AND activo=TRUE RETURNING id,nombre,apellido,telefono,COALESCE(email,''),COALESCE(direccion,''),activo,created_at,updated_at,foto_perfil IS NOT NULL`,
 		clienteID, req.Nombre, req.Apellido, req.Telefono, req.Email, req.Direccion).Scan(
 		&cliente.ID, &cliente.Nombre, &cliente.Apellido, &cliente.Telefono, &cliente.Email, &cliente.Direccion,
 		&cliente.Activo, &cliente.CreatedAt, &cliente.UpdatedAt, &cliente.TieneFotoPerfil)
