@@ -24,6 +24,9 @@ func ValidateClienteRegistro(req *models.ClienteRegistroRequest) ValidationError
 	}
 	errs = append(errs, validateDireccion(req.Direccion)...)
 	errs = append(errs, validatePassword(req.Password)...)
+	if !req.AceptaTerminos {
+		errs = append(errs, FieldError{Field: "acepta_terminos", Message: "debes aceptar los términos y condiciones y el aviso de privacidad"})
+	}
 	return errs
 }
 

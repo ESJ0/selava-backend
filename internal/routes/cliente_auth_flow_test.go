@@ -137,7 +137,7 @@ func ejecutarJSON(router http.Handler, method, path, body string, token ...strin
 
 func registrarClienteHTTP(t *testing.T, router http.Handler, email string) int {
 	t.Helper()
-	body := `{"nombre":"Ana","apellido":"Lopez","telefono":"5555-1234","email":"` + email + `","direccion":"Zona 1","password":"secreto-seguro"}`
+	body := `{"nombre":"Ana","apellido":"Lopez","telefono":"5555-1234","email":"` + email + `","direccion":"Zona 1","password":"secreto-seguro","acepta_terminos":true}`
 	res := ejecutarJSON(router, http.MethodPost, "/api/auth/clientes/registro", body)
 	if res.Code != http.StatusCreated {
 		t.Fatalf("registro status=%d body=%s", res.Code, res.Body.String())
@@ -178,7 +178,7 @@ func TestFlujoRegistroYLoginCliente(t *testing.T) {
 	router, repo := nuevoRouterClienteEnMemoria()
 	clienteID := registrarClienteHTTP(t, router, "ana@example.com")
 
-	duplicado := ejecutarJSON(router, http.MethodPost, "/api/auth/clientes/registro", `{"nombre":"Otra","apellido":"Persona","telefono":"5555-9876","email":"ANA@EXAMPLE.COM","password":"otro-secreto"}`)
+	duplicado := ejecutarJSON(router, http.MethodPost, "/api/auth/clientes/registro", `{"nombre":"Otra","apellido":"Persona","telefono":"5555-9876","email":"ANA@EXAMPLE.COM","password":"otro-secreto","acepta_terminos":true}`)
 	if duplicado.Code != http.StatusConflict {
 		t.Fatalf("duplicado status=%d body=%s", duplicado.Code, duplicado.Body.String())
 	}

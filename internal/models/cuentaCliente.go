@@ -27,7 +27,13 @@ type ClienteRegistroRequest struct {
 	Email     string `json:"email"`
 	Direccion string `json:"direccion"`
 	Password  string `json:"password"`
+	// El cliente debe aceptar los Términos y condiciones y el Aviso de privacidad para registrarse.
+	AceptaTerminos bool `json:"acepta_terminos"`
 }
+
+// TerminosVersionActual identifica el texto vigente de los Términos y condiciones del portal.
+// Cambiarla cuando se publique una nueva versión para saber qué aceptó cada cliente.
+const TerminosVersionActual = "2026-11"
 
 type ClienteLoginRequest struct {
 	Email    string `json:"email"`

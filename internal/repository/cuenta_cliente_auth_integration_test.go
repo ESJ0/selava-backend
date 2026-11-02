@@ -17,6 +17,12 @@ func TestCuentaClienteRepositoryRegistraPerfilYCuentaAtomicamente(t *testing.T) 
 
 	registro, err := repo.Registrar(f.ctx, req, "hash-de-prueba")
 	mustSprint3(t, err)
+	var version string
+	var aceptado bool
+	mustSprint3(t, f.db.QueryRow(f.ctx, `SELECT COALESCE(terminos_version, ''), terminos_aceptados_at IS NOT NULL FROM usuarios WHERE id = $1`, registro.Cuenta.ID).Scan(&version, &aceptado))
+	if version != models.TerminosVersionActual || !aceptado {
+		t.Fatalf("no se guardo la aceptacion de terminos: version=%q aceptado=%v", version, aceptado)
+	}
 	if registro.Cliente.ID == 0 || registro.Cuenta.ClienteID != registro.Cliente.ID {
 		t.Fatalf("relacion incorrecta: %#v", registro)
 	}

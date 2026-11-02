@@ -54,11 +54,11 @@ func (r *CuentaClienteRepository) Registrar(ctx context.Context, req *models.Cli
 	}
 
 	err = tx.QueryRow(ctx, `
-		INSERT INTO usuarios(rol_id, cliente_id, nombre, apellido, email, password_hash, telefono)
-		VALUES(4, $1, $2, $3, $4, $5, $6)
+		INSERT INTO usuarios(rol_id, cliente_id, nombre, apellido, email, password_hash, telefono, terminos_aceptados_at, terminos_version)
+		VALUES(4, $1, $2, $3, $4, $5, $6, NOW(), $7)
 		RETURNING id, cliente_id, email, password_hash, activo,
 		          email_verificado_at, ultimo_acceso_at, created_at, updated_at
-	`, resultado.Cliente.ID, req.Nombre, req.Apellido, req.Email, passwordHash, req.Telefono).Scan(
+	`, resultado.Cliente.ID, req.Nombre, req.Apellido, req.Email, passwordHash, req.Telefono, models.TerminosVersionActual).Scan(
 		&resultado.Cuenta.ID,
 		&resultado.Cuenta.ClienteID,
 		&resultado.Cuenta.Email,

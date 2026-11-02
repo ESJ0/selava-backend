@@ -72,7 +72,7 @@ func TestClienteAuthServiceRegistrarNormalizaYHasheaPassword(t *testing.T) {
 	servicio := NewClienteAuthService(repo, "secret")
 	req := &models.ClienteRegistroRequest{
 		Nombre: " Ana ", Apellido: " Lopez ", Telefono: " 5555-1234 ",
-		Email: " ANA@EXAMPLE.COM ", Direccion: " Zona 1 ", Password: "secreto-seguro",
+		Email: " ANA@EXAMPLE.COM ", Direccion: " Zona 1 ", Password: "secreto-seguro", AceptaTerminos: true,
 	}
 
 	if _, err := servicio.Registrar(context.Background(), req); err != nil {
