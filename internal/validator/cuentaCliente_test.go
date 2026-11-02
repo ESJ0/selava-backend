@@ -9,11 +9,12 @@ import (
 
 func registroClienteValido() *models.ClienteRegistroRequest {
 	return &models.ClienteRegistroRequest{
-		Nombre:   "Ana",
-		Apellido: "Lopez",
-		Telefono: "5555-1234",
-		Email:    "ana@example.com",
-		Password: "secreto-seguro",
+		Nombre:         "Ana",
+		Apellido:       "Lopez",
+		Telefono:       "5555-1234",
+		Email:          "ana@example.com",
+		Password:       "secreto-seguro",
+		AceptaTerminos: true,
 	}
 }
 
@@ -58,5 +59,14 @@ func TestValidateClienteLoginRequiereCredenciales(t *testing.T) {
 	errs := ValidateClienteLogin(&models.ClienteLoginRequest{})
 	if len(errs) != 2 {
 		t.Fatalf("se esperaban dos errores, se obtuvo %#v", errs)
+	}
+}
+
+func TestValidateClienteRegistroExigeAceptarTerminos(t *testing.T) {
+	req := registroClienteValido()
+	req.AceptaTerminos = false
+	errs := ValidateClienteRegistro(req)
+	if len(errs) != 1 || errs[0].Field != "acepta_terminos" {
+		t.Fatalf("se esperaba error de terminos: %#v", errs)
 	}
 }
