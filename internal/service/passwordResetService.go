@@ -34,14 +34,18 @@ func NewPasswordResetService(usuarios *repository.UsuarioRepository, tokens *rep
 }
 
 func (s *PasswordResetService) Solicitar(ctx context.Context, email string) error {
-	usuario, err := s.usuarios.GetByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
+	email = strings.ToLower(strings.TrimSpace(email))
+	usuario, err := s.usuarios.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, repository.ErrUsuarioNoEncontrado) {
+			// Solo en el log del servidor: al cliente siempre se le responde lo mismo.
+			log.Printf("recuperacion de contrasena: no existe una cuenta con el correo %s; no se envia correo", email)
 			return nil
 		}
 		return err
 	}
 	if !usuario.Activo {
+		log.Printf("recuperacion de contrasena: la cuenta %s esta inactiva; no se envia correo", email)
 		return nil
 	}
 	raw, err := tokenSeguro()
@@ -63,7 +67,9 @@ func (s *PasswordResetService) Solicitar(ctx context.Context, email string) erro
 		defer cancel()
 		if err := s.mailer.EnviarRecuperacion(mailCtx, usuario.Email, usuario.Nombre, link); err != nil {
 			log.Printf("no se pudo enviar el correo de recuperacion a %s: %v", usuario.Email, err)
+			return
 		}
+		log.Printf("correo de recuperacion enviado a %s", usuario.Email)
 	}
 	go send()
 	return nil

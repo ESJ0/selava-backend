@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -46,6 +47,15 @@ func Load() (*Config, error) {
 		SMTPFrom:         os.Getenv("SMTP_FROM"),
 		SMTPFromName:     envOrDefault("SMTP_FROM_NAME", "SELAVA"),
 		PasswordResetURL: envOrDefault("PASSWORD_RESET_URL", "http://localhost:5174/restablecer-contrasena"),
+	}
+
+	cfg.SMTPHost = strings.TrimSpace(cfg.SMTPHost)
+	cfg.SMTPUser = strings.TrimSpace(cfg.SMTPUser)
+	cfg.SMTPFrom = strings.TrimSpace(cfg.SMTPFrom)
+	// Google muestra las contraseñas de aplicación en bloques ("abcd efgh ijkl mnop");
+	// el servidor SMTP las espera sin espacios.
+	if strings.Contains(strings.ToLower(cfg.SMTPHost), "gmail.com") {
+		cfg.SMTPPassword = strings.Join(strings.Fields(cfg.SMTPPassword), "")
 	}
 
 	if cfg.DBHost == "" || cfg.DBUser == "" || cfg.DBName == "" || cfg.JWTSecret == "" {
